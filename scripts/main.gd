@@ -1,6 +1,6 @@
 class_name Band
 extends Node
-## One Man Band. Five buttons play five notes the way an ocarina's do, on whichever of his
+## One Man Band. Five buttons play five notes, the way an ocarina's holes do, on whichever of his
 ## instruments the bandsman has in his hands, and a loop station keeps what was played going
 ## while the next thing goes on top.
 ##
@@ -329,7 +329,7 @@ func load_demo() -> void:
 	looper.from_dict(_demo())
 
 
-# A couple of bars for the house band: drums, tuba, accordion, guitar and bells, with the ocarina
+# A couple of bars for the house band: drums, tuba, accordion, guitar and bells, with the piccolo
 # and the trumpet left for whoever is playing. Notes are [beat, length, note].
 func _demo() -> Dictionary:
 	var tracks := []

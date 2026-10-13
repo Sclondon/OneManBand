@@ -14,7 +14,7 @@ const INK := Color("3a1c14")
 # Where the left hand goes for each instrument, in the torso's space; the right is its mirror
 # unless given
 const REACH := [
-	[Vector3(0.078, 0.585, 0.215), null],
+	[Vector3(-0.07, 0.56, 0.22), Vector3(-0.2, 0.555, 0.2)],
 	[Vector3(0.04, 0.555, 0.3), Vector3(-0.03, 0.6, 0.37)],
 	[Vector3(0.2, 0.2, 0.28), null],
 	[Vector3(0.34, 0.25, 0.24), Vector3(-0.07, 0.06, 0.28)],
@@ -71,8 +71,8 @@ func _ready() -> void:
 		_give(p[piece], acc)
 	p.accordion = acc
 	# In the hands: [piece, where it is held, where it hangs otherwise (null to put it away)]
-	_carry(Kit.OCARINA, p.ocarina, Transform3D(Basis(), Vector3(0.0, 0.6, 0.215)),
-			Transform3D(Basis(Vector3.BACK, 0.5), Vector3(0.2, 0.03, 0.14)))
+	_carry(Kit.PICCOLO, p.piccolo, Transform3D(Basis(Vector3.BACK, 0.12), Vector3(0.0, 0.575, 0.2)),
+			Transform3D(Basis(Vector3.BACK, 1.2), Vector3(0.21, 0.12, 0.12)))
 	_carry(Kit.TRUMPET, p.trumpet, Transform3D(Basis(Vector3.UP, -0.5) * Basis(Vector3.RIGHT, 0.28), Vector3(0.0, 0.605, 0.17)),
 			Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3(-0.31, 0.5, -0.17)))
 	_carry(Kit.ACCORDION, acc, Transform3D(Basis(), Vector3(0.0, 0.2, 0.26)), null)
@@ -181,7 +181,7 @@ func _process(delta: float) -> void:
 	for item in carried:
 		var mine: bool = item.inst == inst
 		var goal: Transform3D = item.hold if mine else (item.stow if item.stow != null else item.hold)
-		if mine and (item.inst == Kit.TRUMPET or item.inst == Kit.OCARINA):
+		if mine and item.inst == Kit.TRUMPET:
 			goal = goal * Transform3D(Basis(Vector3.RIGHT, -0.2 * lift), Vector3.ZERO)
 		var node: Node3D = item.node
 		var size: Vector3 = node.scale
@@ -238,20 +238,21 @@ func _hand_goal(h: int) -> Vector3:
 		Kit.TRUMPET:
 			# Wherever the trumpet is: one hand under it, one on the valves
 			at = p.trumpet.transform * (Vector3(0.03, -0.045, 0.13) if h == 0 else Vector3(-0.025, 0.0, 0.23))
-		Kit.OCARINA:
-			at.y += 0.04 * lift
+		Kit.PICCOLO:
+			# Along the pipe, out to his right
+			at = p.piccolo.transform * (Vector3(-0.07, -0.02, 0.02) if h == 0 else Vector3(-0.2, -0.02, 0.02))
 	return at
 
 
 func _blown() -> bool:
-	return inst == Kit.OCARINA or inst == Kit.TRUMPET or inst == Kit.TUBA
+	return inst == Kit.PICCOLO or inst == Kit.TRUMPET or inst == Kit.TUBA
 
 
 # The part of him that instrument `which` sounds from
 func _piece(which: int, b: int) -> Node3D:
 	match which:
-		Kit.OCARINA:
-			return p.ocarina
+		Kit.PICCOLO:
+			return p.piccolo
 		Kit.TRUMPET:
 			return p.trumpet
 		Kit.ACCORDION:

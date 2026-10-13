@@ -1,7 +1,7 @@
 class_name Kit
 ## What the bandsman carries, and how the five note buttons are tuned.
 
-const OCARINA := 0
+const PICCOLO := 0
 const TRUMPET := 1
 const ACCORDION := 2
 const GUITAR := 3
@@ -12,7 +12,7 @@ const DRUMS := 6
 # `base` is the note the buttons count up from in the key of C, `bases` the notes there are
 # samples of, `held` whether a note lasts as long as the button, `gm` the General MIDI program.
 const INSTRUMENTS: Array[Dictionary] = [
-	{"id": "ocarina", "name": "Ocarina", "base": 60, "bases": [60, 72, 84], "held": true, "gm": 79, "db": -5.0, "color": Color("4fd6c8")},
+	{"id": "piccolo", "name": "Piccolo", "base": 72, "bases": [72, 84, 96], "held": true, "gm": 72, "db": -5.0, "color": Color("4fd6c8")},
 	{"id": "trumpet", "name": "Trumpet", "base": 60, "bases": [48, 60, 72], "held": true, "gm": 56, "db": -7.0, "color": Color("ffd24a")},
 	{"id": "accordion", "name": "Accordion", "base": 48, "bases": [48, 60, 72], "held": true, "gm": 21, "db": -9.0, "color": Color("ff6a5c")},
 	{"id": "guitar", "name": "Guitar", "base": 48, "bases": [48, 60, 72], "held": false, "gm": 24, "db": -4.0, "color": Color("f0a25a")},
@@ -23,10 +23,10 @@ const INSTRUMENTS: Array[Dictionary] = [
 
 const DRUM_NAMES := ["Kick", "Snare", "Hat", "Tom", "Crash"]
 
-# The five buttons from the lowest (A) to the highest (C up), as semitones above the key note.
-# The first is the tuning of the ocarina itself: in C it gives D F A B D.
+# The five buttons from the lowest to the highest, as semitones above the key note.
+# The first is the old ocarina tuning: in C it gives D F A B D.
 const TUNINGS: Array[Dictionary] = [
-	{"name": "Ocarina", "steps": [2, 5, 9, 11, 14]},
+	{"name": "Classic", "steps": [2, 5, 9, 11, 14]},
 	{"name": "Sunny", "steps": [0, 2, 4, 7, 9]},
 	{"name": "Moody", "steps": [0, 3, 5, 7, 10]},
 	{"name": "Blues", "steps": [0, 3, 5, 6, 7]},
@@ -36,7 +36,7 @@ const TUNINGS: Array[Dictionary] = [
 
 const NOTE_NAMES := ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
 
-# Little melodies that do something, as buttons (0 is A, then C down, right, left, up)
+# Little melodies that do something, as buttons (0 is the lowest)
 const TUNES: Array[Dictionary] = [
 	{"name": "Sun Tune", "pads": [2, 1, 4, 2, 1, 4], "does": "sun", "hint": "turns day to night and back"},
 	{"name": "Storm Tune", "pads": [0, 1, 4, 0, 1, 4], "does": "storm", "hint": "calls the rain, or sends it off"},

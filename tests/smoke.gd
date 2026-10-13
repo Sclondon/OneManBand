@@ -35,7 +35,7 @@ func _run() -> void:
 	_listen()
 	var looper := main.looper
 	_check(looper.has_notes(0, Kit.TUBA) and looper.has_notes(0, Kit.DRUMS), "a first visit gets the house band")
-	_check(not looper.has_notes(0, Kit.OCARINA), "with the ocarina left for the player")
+	_check(not looper.has_notes(0, Kit.PICCOLO), "with the piccolo left for the player")
 	for id: String in ["n0", "n4", "flat", "up", "i6", "rec", "play", "s3", "menu"]:
 		var r: Rect2 = main.hud.buttons[id].rect
 		_check(Rect2(Vector2.ZERO, main.hud.size_now).encloses(r), "%s is on the screen" % id)
@@ -55,10 +55,10 @@ func _run() -> void:
 	await _key(KEY_A, true)
 	_check(main.held.has(0), "a key plays its button")
 	await _key(KEY_A, false)
-	_check(main.pad_note(0) == 62 and main.pad_note(4) == 74, "the ocarina is tuned D to D")
+	_check(main.pad_note(0) == 74 and main.pad_note(4) == 86, "the piccolo is tuned D to D")
 	await _touch("sharp", true)
 	await _touch("up", true, 1)
-	_check(main.pad_note(0) == 62 + 13, "sharp and the octave bend what is played")
+	_check(main.pad_note(0) == 74 + 13, "sharp and the octave bend what is played")
 	await _touch("sharp", false)
 	await _touch("up", false, 1)
 
@@ -158,7 +158,7 @@ func _run() -> void:
 	_check(main.hud.menu_open, "the menu opens")
 	await _touch("menu:tuning", true)
 	await _touch("menu:tuning", false)
-	_check(main.tuning == 1 and main.pad_note(0) == 60, "and changes the tuning")
+	_check(main.tuning == 1 and main.pad_note(0) == 72, "and changes the tuning")
 	await _touch("menu:close", true)
 	await _touch("menu:close", false)
 	_check(not main.hud.menu_open, "and shuts")

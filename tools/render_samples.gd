@@ -2,7 +2,7 @@ extends SceneTree
 ## Renders every sound in the game to sounds/*.res, so nothing has to be synthesised while it loads.
 ## godot --headless --path . -s tools/render_samples.gd
 ##
-## Held instruments (ocarina, trumpet, accordion, tuba) are an attack and then a loop of exactly a
+## Held instruments (piccolo, trumpet, accordion, tuba) are an attack and then a loop of exactly a
 ## whole number of waves, so they can be held for ever without a click. The rest ring out.
 
 const RATE := 32000
@@ -14,8 +14,8 @@ var noise := RandomNumberGenerator.new()
 func _initialize() -> void:
 	noise.seed = 1987
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://sounds"))
-	for m: int in [60, 72, 84]:
-		_held("ocarina_%d" % m, m, _ocarina, 0.045, 0.003, 0.035, [[1, 0, 1.0]])
+	for m: int in [72, 84, 96]:
+		_held("piccolo_%d" % m, m, _piccolo, 0.03, 0.004, 0.05, [[1, 0, 1.0]])
 	for m: int in [48, 60, 72]:
 		_held("trumpet_%d" % m, m, _trumpet, 0.035, 0.0035, 0.006, [[1, 0, 1.0]])
 	for m: int in [48, 60, 72]:
@@ -32,8 +32,8 @@ func _initialize() -> void:
 
 
 # How strong harmonic h of a note at hz is, for each of the held instruments
-func _ocarina(h: int, _hz: float) -> float:
-	return [1.0, 0.07, 0.1, 0.015, 0.02][h - 1] if h <= 5 else 0.0
+func _piccolo(h: int, _hz: float) -> float:
+	return [1.0, 0.38, 0.14, 0.06, 0.025, 0.01][h - 1] if h <= 6 else 0.0
 
 
 func _trumpet(h: int, hz: float) -> float:

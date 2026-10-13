@@ -308,12 +308,14 @@ def build_bandsman():
     lead.cyl((0.02, -0.2, 1.55), (0.0, -0.17, 1.6), 0.012, 0.026, BRASS, seg=5)
 
     # What he holds. Each is built about its own origin, where the game takes hold of it.
-    oc = Part("ocarina")
-    oc.ball((0, 0, 0), (0.115, 0.055, 0.048), TEAL, TEAL_D, seg=8, rings=5)
-    oc.cyl((0.02, 0.03, 0.005), (0.035, 0.105, 0.01), 0.03, 0.014, TEAL, TEAL_D, seg=5)
-    oc.cyl((0.02, 0.028, 0.004), (0.023, 0.045, 0.006), 0.034, 0.03, GOLD, seg=5)
-    for x in (-0.06, -0.025, 0.012, 0.05):
-        oc.ball((x, -0.03 + abs(x) * 0.15, 0.036), 0.011, DARK, seg=4, rings=3)
+    # A piccolo, played sideways: the lip hole is at the origin and the pipe runs out to his right
+    pc = Part("piccolo")
+    pc.cyl((0.05, 0, 0), (-0.3, 0, 0), 0.015, 0.013, DARK, seg=6)
+    for x in (0.05, -0.05, -0.3):
+        pc.cyl((x + 0.008, 0, 0), (x - 0.008, 0, 0), 0.019, 0.019, WHITE, seg=6)
+    pc.ball((0.0, -0.004, 0.013), (0.012, 0.01, 0.006), WHITE, seg=5, rings=3)
+    for x in (-0.09, -0.125, -0.16, -0.195, -0.23, -0.265):
+        pc.ball((x, -0.006, 0.014), 0.009, WHITE, seg=4, rings=3)
 
     tr = Part("trumpet")
     tr.cyl((0, 0.0, 0), (0, -0.045, 0), 0.02, 0.008, GOLD, seg=5)

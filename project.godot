@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="One Man Band"
-config/description="A grinning bandsman with a whole band on his back. Play him like an ocarina, and loop it."
+config/description="A grinning bandsman with a whole band on his back. Five notes, seven instruments, and a loop station."
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"

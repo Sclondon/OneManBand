@@ -1,15 +1,15 @@
 # One Man Band
 
-A grinning bandsman with a whole band on his back. Five buttons play five notes, the way an ocarina's do, on
+A grinning bandsman with a whole band on his back. Five buttons play five notes on
 whichever instrument he has in his hands, and a loop station keeps what you played going while you put the next
 thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a phone.
 
 ## Playing
 
-- **Notes**: the blue A and the four yellow buttons, lowest to highest (A, down, right, left, up). Slide a finger
+- **Notes**: five round buttons with their note names on them, lowest on the left. Slide a finger
   from one to the next. Keys `A S D F G`.
 - **Benders** (hold): flat, sharp, octave down, octave up. Arrow keys.
-- **Instruments**: ocarina, trumpet, accordion, guitar, tuba, bells, drums. Keys `1` to `7`. On the drums the five
+- **Instruments**: piccolo, trumpet, accordion, guitar, tuba, bells, drums. Keys `1` to `7`. On the drums the five
   buttons are kick, snare, hat, tom and crash.
 - **Loop station**: record (`R`; counts a bar in from a standstill), play/stop (`Space`), undo (`Z`), clear this
   track, mute this track, metronome (`M`), tempo, loop length (1, 2, 4 or 8 bars; doubling repeats what is there),
