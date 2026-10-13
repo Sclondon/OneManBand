@@ -29,7 +29,7 @@ thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a pho
 | `scripts/midi.gd` | Writes a song as a standard MIDI file |
 | `scripts/bandsman.gd` | The man: arms that reach for what he holds, the rest bobbing to the beat, painted faces |
 | `scripts/stage.gd` | The green, sky, day and night, rain, fireflies, floating notes |
-| `scripts/hud.gd` | Every control, drawn by hand and multi-touch |
+| `scripts/hud.gd` | Every control, drawn by hand, multi-touch, scaled down to fit any screen |
 | `scripts/n64.gd`, `shaders/` | The one vertex-lit material and the sky |
 | `art/make_models.py` | Builds `models/*.glb` (and `art/*.blend`) in Blender |
 | `tools/render_samples.gd` | Synthesises `sounds/*.res` |

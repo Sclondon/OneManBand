@@ -184,7 +184,7 @@ func _touch(id: String, down: bool, finger := 0) -> void:
 	var e := InputEventScreenTouch.new()
 	e.index = finger
 	e.pressed = down
-	e.position = root.get_final_transform() * main.hud.buttons[id].rect.get_center()
+	e.position = root.get_final_transform() * main.hud.on_screen(id)
 	Input.parse_input_event(e)
 	await _frames(2)
 
@@ -192,7 +192,7 @@ func _touch(id: String, down: bool, finger := 0) -> void:
 func _drag(id: String, finger := 0) -> void:
 	var e := InputEventScreenDrag.new()
 	e.index = finger
-	e.position = root.get_final_transform() * main.hud.buttons[id].rect.get_center()
+	e.position = root.get_final_transform() * main.hud.on_screen(id)
 	Input.parse_input_event(e)
 	await _frames(2)
 

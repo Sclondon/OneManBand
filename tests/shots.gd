@@ -1,6 +1,6 @@
 extends SceneTree
 ## Screenshots of the band at work.
-## godot --audio-driver Dummy --path . -s tests/shots.gd -- --shots=<dir> [--portrait] [--only=name,name] [--turn=DEGREES] [--close]
+## godot --audio-driver Dummy --path . -s tests/shots.gd -- --shots=<dir> [--portrait | --size=WxH] [--only=name,name] [--turn=DEGREES] [--close]
 ## With --turn the camera goes round him by that much; with --close it comes in on his top half.
 
 var save := "user://shots_test.json"
@@ -10,6 +10,7 @@ var portrait := false
 var only: PackedStringArray = []
 var turned := 0.0
 var close := false
+var window := Vector2i.ZERO
 
 
 func _initialize() -> void:
@@ -24,8 +25,13 @@ func _initialize() -> void:
 			turned = deg_to_rad(float(arg.trim_prefix("--turn=")))
 		if arg == "--close":
 			close = true
+		if arg.begins_with("--size="):
+			var parts := arg.trim_prefix("--size=").split("x")
+			window = Vector2i(int(parts[0]), int(parts[1]))
 	DirAccess.make_dir_recursive_absolute(out)
-	DisplayServer.window_set_size(Vector2i(540, 1100) if portrait else Vector2i(1280, 720))
+	if window == Vector2i.ZERO:
+		window = Vector2i(540, 1100) if portrait else Vector2i(1280, 720)
+	DisplayServer.window_set_size(window)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(save))
 	main = load("res://main.tscn").instantiate()
 	main.save_path = save
@@ -106,5 +112,5 @@ func _shot(name: String) -> void:
 		main.hud.visible = false
 		main.set_process(false)
 	await RenderingServer.frame_post_draw
-	root.get_texture().get_image().save_png(out.path_join(name + ("_portrait" if portrait else "") + ".png"))
+	root.get_texture().get_image().save_png(out.path_join(name + ("_portrait" if portrait else "") + ("_%dx%d" % [window.x, window.y] if not portrait and window != Vector2i(1280, 720) else "") + ".png"))
 	main.set_process(true)

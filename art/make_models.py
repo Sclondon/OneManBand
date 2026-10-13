@@ -28,6 +28,8 @@ SKIN_D = "#d8a47a"
 HAIR = "#e86a1c"
 HAIR_D = "#b0440e"
 WHITE = "#f4f0e2"
+SHIRT = "#f1e6c6"
+SHIRT_D = "#d9c9a0"
 RED = "#cf3a30"
 RED_D = "#8a1d1c"
 BROWN = "#80502a"
@@ -187,17 +189,21 @@ def drum(part, p1, p2, r, shell, seg=10):
 def build_bandsman():
     fresh()
 
+    # Overalls over a shirt: the seat and legs, a band round the waist, a bib and two straps
     hips = Part("hips", None, (0, 0, 0.95))
-    hips.ball((0, 0, 0.93), (0.17, 0.12, 0.11), PURPLE_D)
-    hips.cyl((0, 0, 0.6), (0, 0, 1.0), 0.29, 0.19, PURPLE_D, PURPLE, seg=8, flat=0.75)
-    hips.cyl((0, 0, 0.58), (0, 0, 0.615), 0.297, 0.292, GOLD, seg=8, flat=0.75)
+    hips.ball((0, 0, 0.95), (0.195, 0.145, 0.14), PURPLE, PURPLE_D)
 
     torso = Part("torso", hips, (0, 0, 1.0))
-    torso.cyl((0, 0, 0.98), (0, 0, 1.42), 0.185, 0.215, PURPLE, PURPLE_L, seg=8, flat=0.68)
-    torso.ball((0, 0, 1.42), (0.215, 0.146, 0.07), PURPLE_L)
-    torso.cyl((0, 0, 0.985), (0, 0, 1.04), 0.198, 0.2, GOLD, seg=8, flat=0.7)
-    for z in (1.13, 1.23, 1.33):
-        torso.ball((0, -0.135 - (z - 1.13) * 0.045, z), 0.02, GOLD, GOLD_D, seg=5, rings=3)
+    torso.cyl((0, 0, 0.98), (0, 0, 1.42), 0.185, 0.215, SHIRT_D, SHIRT, seg=8, flat=0.68)
+    torso.ball((0, 0, 1.42), (0.215, 0.146, 0.07), SHIRT)
+    torso.cyl((0, 0, 0.96), (0, 0, 1.15), 0.2, 0.2, PURPLE, seg=8, flat=0.72)
+    torso.box((0, -0.14, 1.24), (0.25, 0.045, 0.26), PURPLE_L, PURPLE)
+    torso.box((0, -0.166, 1.25), (0.13, 0.012, 0.1), PURPLE_D)
+    torso.box((0, 0.135, 1.22), (0.2, 0.04, 0.2), PURPLE, PURPLE_D)
+    for s in (1, -1):
+        torso.pipe([(0.095 * s, -0.16, 1.35), (0.085 * s, -0.125, 1.46), (0.08 * s, 0.03, 1.5),
+                    (0.07 * s, 0.14, 1.3)], 0.024, PURPLE, seg=4)
+        torso.ball((0.095 * s, -0.172, 1.34), 0.024, GOLD, GOLD_D, seg=5, rings=3)
     torso.cyl((0, 0, 1.44), (0, 0, 1.54), 0.09, 0.065, WHITE, seg=6)
     torso.cyl((0, -0.105, 1.47), (0.1, -0.11, 1.47), 0.012, 0.05, RED, RED_D, seg=4)
     torso.cyl((0, -0.105, 1.47), (-0.1, -0.11, 1.47), 0.012, 0.05, RED, RED_D, seg=4)
@@ -241,11 +247,11 @@ def build_bandsman():
     for s, side in ((1, "L"), (-1, "R")):
         x = 0.26 * s
         up = Part("upper_" + side, torso, (x, 0, 1.42))
-        up.ball((x, 0, 1.42), 0.068, PURPLE_L, seg=6, rings=4)
-        up.cyl((x, 0, 1.12), (x, 0, 1.42), 0.048, 0.06, PURPLE, PURPLE_L)
+        up.ball((x, 0, 1.42), 0.068, SHIRT, seg=6, rings=4)
+        up.cyl((x, 0, 1.12), (x, 0, 1.42), 0.05, 0.06, SHIRT_D, SHIRT)
         fo = Part("fore_" + side, up, (x, 0, 1.12))
-        fo.ball((x, 0, 1.12), 0.05, PURPLE, seg=6, rings=4)
-        fo.cyl((x, 0, 0.88), (x, 0, 1.12), 0.04, 0.048, PURPLE)
+        fo.ball((x, 0, 1.12), 0.052, SHIRT_D, seg=6, rings=4)
+        fo.cyl((x, 0, 0.88), (x, 0, 1.12), 0.042, 0.05, SHIRT, SHIRT_D)
         fo.cyl((x, 0, 0.855), (x, 0, 0.9), 0.052, 0.05, GOLD)
         ha = Part("hand_" + side, fo, (x, 0, 0.86))
         ha.ball((x, 0, 0.81), (0.04, 0.032, 0.055), SKIN, SKIN_D, seg=6, rings=4)
@@ -253,11 +259,12 @@ def build_bandsman():
 
         x = 0.1 * s
         th = Part("thigh_" + side, hips, (x, 0, 0.92))
-        th.cyl((x, 0, 0.5), (x, 0, 0.92), 0.058, 0.075, PURPLE_D)
+        th.cyl((x, 0, 0.5), (x, 0, 0.92), 0.07, 0.092, PURPLE_D, PURPLE)
         sh = Part("shin_" + side, th, (x, 0, 0.5))
-        sh.ball((x, 0, 0.5), 0.06, PURPLE_D, seg=6, rings=4)
-        sh.cyl((x, 0, 0.1), (x, 0, 0.5), 0.04, 0.056, PURPLE_D)
-        sh.cyl((x, 0, 0.1), (x, 0, 0.17), 0.046, 0.046, WHITE)
+        sh.ball((x, 0, 0.5), 0.072, PURPLE_D, seg=6, rings=4)
+        sh.cyl((x, 0, 0.19), (x, 0, 0.5), 0.062, 0.07, PURPLE_D)
+        sh.cyl((x, 0, 0.17), (x, 0, 0.22), 0.07, 0.068, PURPLE_L)
+        sh.cyl((x, 0, 0.09), (x, 0, 0.19), 0.04, 0.042, WHITE)
         ft = Part("foot_" + side, sh, (x, 0, 0.1))
         ft.ball((x, -0.06, 0.05), (0.064, 0.13, 0.05), BROWN, BROWN_D, seg=6, rings=4)
         ft.cyl((x, -0.16, 0.05), (x, -0.25, 0.14), 0.036, 0.004, BROWN)
