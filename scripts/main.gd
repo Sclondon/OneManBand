@@ -9,7 +9,7 @@ extends Node
 
 const KEYS := {
 	KEY_A: "n0", KEY_S: "n1", KEY_D: "n2", KEY_F: "n3", KEY_G: "n4",
-	KEY_Q: "down", KEY_E: "up",
+	KEY_Q: "down", KEY_E: "up", KEY_C: "flat", KEY_V: "sharp",
 	KEY_SPACE: "play", KEY_R: "rec", KEY_Z: "undo", KEY_M: "metro", KEY_ESCAPE: "close",
 }
 const NUMBER_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0]
@@ -34,7 +34,7 @@ var camera: Camera3D
 var inst := 0
 var key := 0
 var tuning := 0
-var mods := {"down": false, "up": false}
+var mods := {"flat": false, "sharp": false, "down": false, "up": false}
 var bend := 0.0           # semitones the stick has everything bent by, this instant
 var _arrows := {}
 var held := {}            # button (or "m60" for a MIDI key) -> [voice, recording token]
@@ -283,9 +283,11 @@ func choose(which: int) -> void:
 # The note button `b` gives right now. For the drums it is how far the drum is bent instead.
 func pad_note(b: int) -> int:
 	if Kit.is_drums(inst):
-		return roundi(hud.stick_now.y * 4.0) + (5 if mods.up else 0) - (5 if mods.down else 0)
+		return roundi(hud.stick_now.y * 4.0) + (2 if mods.sharp else 0) - (2 if mods.flat else 0) + (5 if mods.up else 0) - (5 if mods.down else 0)
 	var steps: Array = Kit.TUNINGS[tuning].steps
-	return Kit.INSTRUMENTS[inst].base + key + steps[b] + (12 if mods.up else 0) - (12 if mods.down else 0)
+	# (flat and sharp move a button a semitone, so between them and the tunings every note can be had)
+	return Kit.INSTRUMENTS[inst].base + key + steps[b] + (1 if mods.sharp else 0) - (1 if mods.flat else 0) \
+			+ (12 if mods.up else 0) - (12 if mods.down else 0)
 
 
 # The button that would give note `n` on instrument `i` with nothing held, or -1

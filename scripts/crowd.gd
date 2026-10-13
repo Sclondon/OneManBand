@@ -27,12 +27,15 @@ func _ready() -> void:
 	add_child(model)
 	N64.dress(model, N64.mat())
 	for i in COUNT:
+		# (even ones are satyrs and odd ones wood imps: both rings get some of each, so the imps
+		# are not all out on the grass at the edge of the picture)
+		var ring: Array = RINGS[(i / 2 + i) % 2]
 		var node: Node3D = model.find_child("kid%d" % i, true, false)
 		var kid := {
 			"node": node,
 			"legs": [node.find_child("kid%d_leg_L" % i, true, false), node.find_child("kid%d_leg_R" % i, true, false)],
 			"arms": [node.find_child("kid%d_arm_L" % i, true, false), node.find_child("kid%d_arm_R" % i, true, false)],
-			"ring": RINGS[i % 2], "a": randf() * TAU, "r": RINGS[i % 2][0] + 0.2, "to_a": 0.0, "to_r": RINGS[i % 2][0],
+			"ring": ring, "a": randf() * TAU, "r": ring[0] + 0.2, "to_a": 0.0, "to_r": ring[0],
 			"wait": randf_range(0.0, 2.0), "pace": randf_range(1.9, 2.9), "step": randf() * TAU, "hop": randf(),
 		}
 		_choose(kid)

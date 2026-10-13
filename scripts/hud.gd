@@ -28,7 +28,32 @@ const GOLD := Color("f8ca22")
 const PAD_COLORS: Array[Color] = [Color("4fb0ff"), Color("58d68d"), Color("f8ca22"), Color("ff9a3d"), Color("ff6b7c")]
 const TRANSPORT := ["rec", "play", "undo", "clear", "mute", "metro", "bpm-", "bpm", "bpm+", "bars", "s0", "s1", "s2", "s3", "menu"]
 const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "radio", "export", "midi", "sound", "songbook", "help", "close"]
-const BENDERS := ["down", "up"]
+const BENDERS := ["flat", "sharp", "down", "up"]
+# In a browser the stick also listens to the page's own touches (see _ready): on some phones
+# a finger's sliding never arrives as a drag here, though its going down and coming up do
+const PAGE_TOUCHES := """
+	(function () {
+		if (window.ombTouch) return;
+		var canvas = document.querySelector('canvas');
+		if (!canvas) return;
+		var t = window.ombTouch = { live: {}, text: '' };
+		function at(touch) {
+			var r = canvas.getBoundingClientRect();
+			return [(touch.clientX - r.left) / r.width, (touch.clientY - r.top) / r.height];
+		}
+		function say() {
+			var out = [];
+			for (var id in t.live) out.push(t.live[id].join(','));
+			t.text = out.join(';');
+		}
+		function each(e, f) { for (var i = 0; i < e.changedTouches.length; i++) f(e.changedTouches[i]); say(); }
+		canvas.addEventListener('touchstart', function (e) { each(e, function (x) { var p = at(x); t.live[x.identifier] = [p[0], p[1], p[0], p[1]]; }); }, { passive: true });
+		canvas.addEventListener('touchmove', function (e) { each(e, function (x) { var v = t.live[x.identifier]; if (v) { var p = at(x); v[2] = p[0]; v[3] = p[1]; } }); }, { passive: true });
+		var up = function (e) { each(e, function (x) { delete t.live[x.identifier]; }); };
+		canvas.addEventListener('touchend', up, { passive: true });
+		canvas.addEventListener('touchcancel', up, { passive: true });
+	})()
+"""
 
 var band: Band
 var title_font: Font
@@ -54,6 +79,7 @@ var stick := Vector2.ZERO
 var stick_keys := Vector2.ZERO
 var stick_now := Vector2.ZERO
 var stick_finger := -1
+var stick_by_page := false   # a finger the page saw go down on the stick has it
 var toast_text := ""
 var toast_left := 0.0
 var by_hand: Array = []        # the last notes played, for the staff when nothing is looping: [button, seconds since, name]
@@ -71,6 +97,8 @@ func _ready() -> void:
 	font = bold
 	for i in Kit.INSTRUMENTS.size():
 		lane_glow.append(0.0)
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(PAGE_TOUCHES, true)
 
 
 # `screen` is the real size; everything is then worked out in that divided by `fit`
@@ -101,14 +129,19 @@ func layout(screen: Vector2) -> void:
 		buttons["n%d" % b] = {"rect": _around(at, rad), "round": true}
 	var pads_left := low.x - rad
 	var pads_top := low.y - 100.0 - rad
-	for k in 2:
-		buttons[BENDERS[k]] = {"rect": Rect2(m + 4.0 + k * 108.0, s.y - m - 60.0, 98.0, 56.0)}
-	stick_at = Vector2(m + 4.0 + 103.0, s.y - m - 60.0 - 14.0 - stick_reach)
+	# The stick, bottom left, with two rows of keys under it: flat and sharp, then the octaves.
+	# Lying down on a phone there is little height, so the stick is made as small as it must be
+	var keys_top := s.y - m - 4.0 - 2.0 * 48.0 - 6.0
+	for k in 4:
+		buttons[BENDERS[k]] = {"rect": Rect2(m + 4.0 + (k % 2) * 108.0, keys_top + (k / 2) * 54.0, 98.0, 48.0)}
+	stick_reach = clampf((keys_top - 12.0 - (y if wide else 0.0) - 10.0) / 2.0, 46.0, 72.0)
+	stick_at = Vector2(m + 4.0 + 103.0, keys_top - 12.0 - stick_reach)
+	var stick_top := stick_at.y - stick_reach - 4.0
 
 	var count := Kit.SHELF.size()
 	var x0 := m
 	var x1 := s.x - m
-	var top := pads_top - 18.0
+	var top := minf(pads_top, stick_top) - 18.0
 	if wide:
 		x0 = m + 4.0 + 206.0 + 14.0
 		x1 = pads_left - 14.0
@@ -230,6 +263,25 @@ func _input(event: InputEvent) -> void:
 				_down(id)
 
 
+# In a browser: is a finger that went down on the stick still down, and where has it got to?
+func _ask_the_page() -> void:
+	if not OS.has_feature("web"):
+		return
+	var had := stick_by_page
+	stick_by_page = false
+	var screen := get_viewport().get_visible_rect().size
+	for touch: String in str(JavaScriptBridge.eval("window.ombTouch ? window.ombTouch.text : ''", true)).split(";", false):
+		var n := touch.split_floats(",")
+		if n.size() < 4 or menu_open or help_open or book_open:
+			continue
+		if (Vector2(n[0], n[1]) * screen / fit).distance_to(stick_at) <= stick_reach * 1.2:
+			stick_by_page = true
+			_stick_to(Vector2(n[2], n[3]) * screen / fit)
+			break
+	if had and not stick_by_page and stick_finger < 0:
+		stick = Vector2.ZERO
+
+
 func _stick_to(at: Vector2) -> void:
 	var push := (at - stick_at) / (stick_reach * 0.8)
 	stick = Vector2(push.x, -push.y).limit_length(1.0)
@@ -266,7 +318,8 @@ func _held(id: String) -> bool:
 
 func _process(delta: float) -> void:
 	toast_left = maxf(0.0, toast_left - delta)
-	stick_now = stick_now.lerp(stick if stick_finger >= 0 else stick_keys, 1.0 - exp(-20.0 * delta))
+	_ask_the_page()
+	stick_now = stick_now.lerp(stick if stick_finger >= 0 or stick_by_page else stick_keys, 1.0 - exp(-20.0 * delta))
 	for note: Array in by_hand:
 		note[1] += delta
 	for i in lane_glow.size():
@@ -302,7 +355,11 @@ func _draw() -> void:
 	for id: String in BENDERS:
 		var on: bool = band.mods[id]
 		var face := _plate(buttons[id].rect, BRASS if on else CREAM, 20.0, on)
-		_draw_bender(id, face.get_center(), INK)
+		var c := face.get_center()
+		if id in ["flat", "sharp"]:
+			draw_set_transform(c * fit * 0.3, 0.0, Vector2(fit, fit) * 0.7)
+		_draw_bender(id, c, INK)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(fit, fit))
 	_draw_stick()
 	for b in 5:
 		_draw_pad(b)
@@ -724,11 +781,11 @@ func _draw_menu() -> void:
 func _draw_help() -> void:
 	var w := minf(size_now.x - 40.0, 660.0)
 	var lines := [
-		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. Hold one for as long as you want the note. The stick bends what is sounding: up and down for pitch, sideways for a wobble. The two keys under it drop or raise an octave while you hold them.",
+		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. Hold one for as long as you want the note. The stick bends what is sounding: up and down for pitch, sideways for a wobble. Under it, flat and sharp move the buttons a half step while you hold them (so every note can be had), and the two octave keys drop or raise them an octave.",
 		"Along the bottom is everything he carries. Tap one and he plays that.",
 		"Press the red lamp, wait for four ticks, and play. It comes round again, and again. Change instrument and play over it. The arrow takes back the last thing you added, the dustbin empties this instrument's track, and A B C D are four loops to move between.",
 		"Some tunes do things. They are in the song book, in the menu.",
-		"Keys: A S D F G for notes, arrows for the stick, Q and E for octaves, 1 to 0 for instruments, Space to play, R to record, Z to take back.",
+		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves, 1 to 0 for instruments, Space to play, R to record, Z to take back.",
 	]
 	var h := 84.0 + 50.0
 	for line: String in lines:
