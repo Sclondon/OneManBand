@@ -59,6 +59,18 @@ func _run() -> void:
 	await _touch("up", true, 1)
 	_check(main.pad_note(0) == 74 + 12, "the octave key lifts what is played")
 	await _touch("up", false, 1)
+	_check(main.pad_note(0) == 74 + 12, "and stays on when the finger is lifted")
+	await _touch("down", true, 1)
+	await _touch("down", false, 1)
+	_check(main.pad_note(0) == 74 - 12, "the other octave key puts it out")
+	await _touch("down", true, 1)
+	await _touch("down", false, 1)
+	await _touch("sharp", true, 1)
+	await _touch("sharp", false, 1)
+	_check(main.pad_note(0) == 75, "sharp lifts a button a half step")
+	await _touch("sharp", true, 1)
+	await _touch("sharp", false, 1)
+	_check(main.pad_note(0) == 74, "and a second tap turns it off")
 	# The stick: a finger on it, pushed to the top, bends a held note up a whole tone
 	var hub: Vector2 = main.hud.stick_at * main.hud.fit
 	var e := InputEventScreenTouch.new()

@@ -3,7 +3,7 @@ class_name MidiFile
 ## has anything on it. With song mode on, every section with notes in it follows the last.
 
 const PPQ := 480
-const DRUM_NOTES := [36, 38, 42, 45, 49]
+const DRUM_NOTES := [36, 38, 42, 45, 49, 35, 37, 46, 41, 51, 39, 76, 54, 56, 55]
 
 
 static func write(looper: Looper) -> PackedByteArray:
@@ -36,7 +36,7 @@ static func write(looper: Looper) -> PackedByteArray:
 			for note: Dictionary in looper.sections[order[k]][inst]:
 				if note.t >= looper.length():
 					continue
-				var key: int = DRUM_NOTES[posmod(note.b, 5)] if drums else clampi(note.n, 0, 127)
+				var key: int = DRUM_NOTES[Kit.drum(note.b, note.n)] if drums else clampi(note.n, 0, 127)
 				var on := k * span + int(note.t * PPQ)
 				var off := on + (60 if drums else maxi(30, int(note.d * PPQ)))
 				events.append([on, 1, key])

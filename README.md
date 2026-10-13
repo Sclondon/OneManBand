@@ -9,10 +9,12 @@ thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a pho
 - **Notes**: five round buttons with their note names on them, lowest on the left. Slide a finger
   from one to the next. Keys `A S D F G`.
 - **The stick**: up and down bends what is sounding by up to a whole tone, sideways makes it wobble. Arrow keys.
-  Under it, flat and sharp move the five buttons a half step while held (`C`, `V`), so every note can be had,
-  and two keys drop or raise an octave while held (`Q`, `E`).
-- **Instruments**: piccolo, trumpet, viola, accordion, guitar, keytar, theremin, tuba, bells, drums. Keys `1` to `0`. On the drums the five
-  buttons are kick, snare, hat, tom and crash.
+  Under it are four keys that stay on until tapped again: flat and sharp move the five buttons a half step
+  (`C`, `V`), so every note can be had, and two drop or raise an octave (`Q`, `E`).
+- **Instruments**: piccolo, trumpet, viola, accordion, guitar, organ, theremin, tuba, bells, drums, and the choir (the
+  satyrs and imps line up and sing, and he conducts). Keys `1` to `0` and `-`. On the drums the five buttons are kick,
+  snare, hat, tom and crash; the low octave key changes them to the big drums (boom, rim, open hat, floor tom, ride) and
+  the high one to the toys (clap, block, shake, bell, splash).
 - **Loop station**: record (`R`; counts a bar in from a standstill), play/stop (`Space`), undo (`Z`), clear this
   track, mute this track, metronome (`M`), tempo, loop length (1, 2, 4 or 8 bars; doubling repeats what is there),
   and four sections A to D that swap at the end of the loop.

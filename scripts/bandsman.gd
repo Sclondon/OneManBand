@@ -21,9 +21,10 @@ const REACH := [
 	[Vector3(0.13, 0.27, 0.23), Vector3(-0.03, 0.44, 0.23)],
 	[Vector3(0.34, 0.3, 0.28), null],
 	[Vector3(0.18, 0.2, 0.38), null],
-	[Vector3(0.38, 0.24, 0.27), Vector3(-0.06, 0.1, 0.32)],
+	[Vector3(0.13, 0.195, 0.29), Vector3(-0.1, 0.195, 0.29)],
 	[Vector3(0.31, 0.2, 0.38), Vector3(-0.3, 0.2, 0.38)],
 	[Vector3(0.37, 0.5, 0.4), Vector3(-0.12, 0.5, 0.3)],
+	[Vector3(0.32, 0.4, 0.3), Vector3(-0.3, 0.44, 0.34)],
 ]
 
 var stage: Stage
@@ -88,12 +89,16 @@ func _ready() -> void:
 	_carry(Kit.TUBA, p.tuba_pipe, p.tuba_pipe.transform, null)
 	_carry(Kit.DRUMS, p.snare, Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0.0, -0.02, 0.39)),
 			null)
-	_carry(Kit.KEYTAR, p.keytar, Transform3D(Basis(Vector3.BACK, 0.3), Vector3(-0.12, 0.08, 0.24)), null)
+	# (the organ hangs in front of him, keys to his side of it and the pipes standing up beyond them)
+	_carry(Kit.ORGAN, p.organ, Transform3D(Basis(), Vector3(0.0, 0.1, 0.34)), null)
 	_carry(Kit.THEREMIN, p.theremin, Transform3D(Basis(Vector3.RIGHT, 0.15), Vector3(0.0, 0.02, 0.36)), null)
 	# (the viola lies face up on his left shoulder, its neck out in front of him)
 	_carry(Kit.VIOLA, p.viola, Transform3D(Basis(Vector3.UP, -0.9) * Basis(Vector3.RIGHT, -PI / 2.0), Vector3(0.13, 0.5, 0.1)), null)
 	_give(p.bow, p.hand_R)
 	p.bow.position = Vector3(0.0, -0.05, 0.0)
+	# (the baton he conducts the choir with)
+	_give(p.baton, p.hand_R)
+	p.baton.transform = Transform3D(Basis(Vector3.RIGHT, PI / 2.0 - 1.0), Vector3(0.0, -0.05, 0.0))
 	# Two of each thing that takes a hand apiece
 	for piece: String in ["bell_hand", "stick"]:
 		var other: Node3D = p[piece].duplicate()
@@ -116,6 +121,7 @@ func choose(which: int, at_once := false) -> void:
 		p["bell_hand_" + side].visible = inst == Kit.BELLS
 		p["stick_" + side].visible = inst == Kit.DRUMS
 	p.bow.visible = inst == Kit.VIOLA
+	p.baton.visible = inst == Kit.CHOIR
 	for item in carried:
 		var mine: bool = item.inst == inst
 		item.node.visible = mine or item.stow != null
@@ -138,7 +144,7 @@ func on_note(which: int, b: int, live: bool) -> void:
 		return
 	last_pad = b
 	match which:
-		Kit.KEYTAR:
+		Kit.ORGAN:
 			strike[1] = 1.0
 		Kit.ACCORDION:
 			half_to = 0.2 if half_to < 0.14 else 0.08
@@ -267,10 +273,10 @@ func _hand_goal(h: int) -> Vector3:
 			at += Vector3(0.0, -0.12, 0.05) * strike[h] + Vector3(0.0, 0.02 * sin(time * 2.0 + h), 0.0)
 		Kit.DRUMS:
 			at += Vector3(0.0, 0.07 - 0.1 * strike[h], 0.0)
-		Kit.KEYTAR:
-			# The right hand walks along the keys to the one it is playing
+		Kit.ORGAN:
+			# The right hand walks along the keys to the one it is playing; the left holds a chord
 			if h == 1:
-				at += Vector3(-0.08 + 0.045 * last_pad, -0.025 * strike[1], 0.0)
+				at += Vector3(-0.08 + 0.04 * last_pad, -0.025 * strike[1], 0.0)
 		Kit.THEREMIN:
 			# One hand by the rod, higher for a higher note; the other floats over the loop
 			if h == 0:
@@ -283,6 +289,14 @@ func _hand_goal(h: int) -> Vector3:
 		Kit.TRUMPET:
 			# Wherever the trumpet is: one hand under it, one on the valves
 			at = p.trumpet.transform * (Vector3(0.05, -0.05, 0.1) if h == 0 else Vector3(-0.05, -0.04, 0.13))
+		Kit.CHOIR:
+			# Conducting: the right hand beats time with the baton (down on the beat, out, and up
+			# again); the left is held out, and lifts to ask for more while a note is held
+			var beat := (phase if phase >= 0.0 else fposmod(time * 1.5, 1.0)) * TAU
+			if h == 1:
+				at += Vector3(-0.09 * sin(beat), 0.11 * cos(beat) - 0.03, 0.04 * sin(beat * 2.0))
+			else:
+				at += Vector3(0.02 * sin(time * 1.7), (0.13 if holding else -0.07) + 0.02 * sin(time * 2.3), 0.0)
 		Kit.PICCOLO:
 			# Along the pipe, out to his right
 			at = p.piccolo.transform * (Vector3(-0.085, -0.026, 0.02) if h == 0 else Vector3(-0.23, -0.026, 0.02))
@@ -308,12 +322,14 @@ func _piece(which: int, b: int) -> Node3D:
 			return p.tuba
 		Kit.BELLS:
 			return p.pack_bells
-		Kit.KEYTAR:
-			return p.keytar
+		Kit.ORGAN:
+			return p.organ
 		Kit.THEREMIN:
 			return p.theremin
 		Kit.VIOLA:
 			return p.viola
+		Kit.CHOIR:
+			return p.baton
 	return [p.pack_drum, p.snare, p.cym_top, p.pack_tom, p.cym_crash][posmod(b, 5)]
 
 

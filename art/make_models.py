@@ -436,19 +436,27 @@ def build_bandsman():
 
     gt.resize(0.8)
 
-    # A keytar: a wedge of a synthesiser on a strap, keys down the front, the neck for the other hand
-    kt = Part("keytar")
-    kt.box((0.0, 0, 0.0), (0.5, 0.06, 0.2), "#e83fbf", "#8a1f78", rot=(0, 0.12, 0))
-    kt.box((-0.2, 0, 0.11), (0.2, 0.06, 0.1), "#e83fbf", "#8a1f78", rot=(0, -0.5, 0))
-    kt.box((0.02, -0.036, 0.0), (0.42, 0.014, 0.11), WHITE, rot=(0, 0.12, 0))
+    # A little pipe organ, hung in front of him: a wine-red case with the keys along his side of
+    # its top, and beyond them a rank of open brass pipes, tall at the ends and short in the
+    # middle so that his face shows over them. (his side is +y, up is +z)
+    og = Part("organ")
+    og.box((0, 0, 0), (0.6, 0.22, 0.13), "#8c2a3e", "#571624")
+    og.box((0, 0, -0.07), (0.64, 0.25, 0.025), GOLD, GOLD_D)
+    og.box((0, 0.045, 0.068), (0.5, 0.1, 0.012), WHITE)
+    for i in range(11):
+        if i % 7 in (2, 6):
+            continue
+        og.box((-0.2125 + i * 0.0425, 0.03, 0.078), (0.02, 0.06, 0.012), DARK)
+    for i in range(5):
+        og.ball((-0.2 + i * 0.1, -0.115, 0.01), 0.02, CREAM, GOLD_D, seg=5, rings=3)
+    # (two towers of pipes with a low run between them)
     for i in range(9):
-        x = -0.16 + i * 0.045
-        kt.box((x, -0.046, 0.022 - x * 0.12), (0.016, 0.01, 0.06), DARK, rot=(0, 0.12, 0))
-    kt.box((0.44, -0.005, -0.045), (0.4, 0.04, 0.055), DARK, rot=(0, 0.12, 0))
-    kt.box((0.66, -0.005, -0.075), (0.08, 0.045, 0.08), "#e83fbf", rot=(0, 0.12, 0))
-    for i in range(3):
-        kt.ball((-0.2 + i * 0.05, -0.036, 0.085), 0.016, GOLD, seg=5, rings=3)
-    kt.cyl((-0.25, 0, -0.06), (-0.4, 0, -0.16), 0.03, 0.0, "#ffe14a", seg=4)
+        x = -0.26 + i * 0.065
+        tall = [0.1, 0.13, 0.24, 0.48, 0.72][abs(i - 4)]
+        wide = 0.022 + abs(i - 4) * 0.004
+        og.horn((x, -0.055, 0.06), (x, -0.055, 0.06 + tall), wide, wide, BRASS, BRASS_D, seg=7)
+        og.cyl((x, -0.055, 0.04), (x, -0.055, 0.075), wide * 0.6, wide, BRASS_D, seg=6)
+        og.box((x, -0.055 - wide, 0.115), (wide * 1.2, 0.012, 0.022), DARK)
 
     # A theremin: a box of valves on a tray, a rod to play the note on and a loop for how loud
     th = Part("theremin")
@@ -497,6 +505,11 @@ def build_bandsman():
     st = Part("stick")
     st.cyl((0, 0.06, 0), (0, -0.36, 0), 0.016, 0.012, CREAM, seg=5)
     st.ball((0, -0.39, 0), 0.045, RED, RED_D, seg=6, rings=4)
+
+    # The baton he conducts the choir with: a white stick with a cork to hold it by
+    bt = Part("baton")
+    bt.cyl((0, 0.04, 0), (0, -0.36, 0), 0.011, 0.004, WHITE, seg=5)
+    bt.ball((0, 0.05, 0), 0.024, BROWN, BROWN_D, seg=5, rings=3)
 
     sn = Part("snare")
     drum(sn, (0, 0, -0.07), (0, 0, 0.07), 0.2, BLUE, seg=10)

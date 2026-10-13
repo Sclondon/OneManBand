@@ -22,7 +22,7 @@ func _ready() -> void:
 		for base: int in kit.bases:
 			set[base] = load("res://sounds/%s_%d.res" % [kit.id, base])
 		samples.append(set)
-	for i in 5:
+	for i in Kit.DRUM_NAMES.size():
 		drums.append(load("res://sounds/drums_%d.res" % i))
 	for i in 2:
 		ticks.append(load("res://sounds/tick_%d.res" % i))
@@ -75,8 +75,8 @@ func play(inst: int, b: int, n: int, loud := 1.0) -> int:
 	var stream: AudioStreamWAV
 	var pitch := 1.0
 	if Kit.is_drums(inst):
-		stream = drums[posmod(b, 5)]
-		pitch = pow(2.0, n / 12.0)
+		stream = drums[Kit.drum(b, n)]
+		pitch = pow(2.0, Kit.drum_bend(n) / 12.0)
 	else:
 		var base: int = kit.bases[0]
 		for other: int in kit.bases:

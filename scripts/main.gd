@@ -12,7 +12,7 @@ const KEYS := {
 	KEY_Q: "down", KEY_E: "up", KEY_C: "flat", KEY_V: "sharp",
 	KEY_SPACE: "play", KEY_R: "rec", KEY_Z: "undo", KEY_M: "metro", KEY_ESCAPE: "close",
 }
-const NUMBER_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0]
+const NUMBER_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS]
 const FOV := 38.0
 # What the camera has to keep in the picture: the middle of him, and how tall and wide he is
 const SUBJECT := Vector3(0.0, 1.55, 0.0)
@@ -35,6 +35,7 @@ var inst := 0
 var key := 0
 var tuning := 0
 var mods := {"flat": false, "sharp": false, "down": false, "up": false}
+const OPPOSITE := {"flat": "sharp", "sharp": "flat", "down": "up", "up": "down"}
 var bend := 0.0           # semitones the stick has everything bent by, this instant
 var _arrows := {}
 var held := {}            # button (or "m60" for a MIDI key) -> [voice, recording token]
@@ -141,6 +142,10 @@ func _process(delta: float) -> void:
 		synth.bend(held[id][0], bend)
 	crowd.phase = man.phase
 	crowd.lively = looper.playing or man.energy > 0.15
+	# The choir is the little folk themselves: they line up in front of him, and sing while a note is held
+	crowd.gather(inst == Kit.CHOIR)
+	if inst == Kit.CHOIR and not held.is_empty():
+		crowd.sing(0.3)
 	_aim()
 	if _radio_wait > 0.0:
 		_radio_wait -= delta
@@ -192,7 +197,10 @@ func press(id: String) -> void:
 	elif s >= 0:
 		looper.go_to(s)
 	elif mods.has(id):
-		mods[id] = true
+		# These stay on until they are tapped again, and each puts its opposite out
+		mods[id] = not mods[id]
+		if mods[id]:
+			mods[OPPOSITE[id]] = false
 	else:
 		match id:
 			"rec":
@@ -265,8 +273,6 @@ func release(id: String) -> void:
 	var n := _numbered(id, "n")
 	if n >= 0:
 		_note_off(n)
-	elif mods.has(id):
-		mods[id] = false
 
 
 func choose(which: int) -> void:
@@ -283,7 +289,9 @@ func choose(which: int) -> void:
 # The note button `b` gives right now. For the drums it is how far the drum is bent instead.
 func pad_note(b: int) -> int:
 	if Kit.is_drums(inst):
-		return roundi(hud.stick_now.y * 4.0) + (2 if mods.sharp else 0) - (2 if mods.flat else 0) + (5 if mods.up else 0) - (5 if mods.down else 0)
+		# (on the drums the octave keys change the kit: the big low drums, or the toys)
+		return roundi(hud.stick_now.y * 4.0) + (2 if mods.sharp else 0) - (2 if mods.flat else 0) \
+				+ Kit.DRUM_KIT * ((1 if mods.up else 0) - (1 if mods.down else 0))
 	var steps: Array = Kit.TUNINGS[tuning].steps
 	# (flat and sharp move a button a semitone, so between them and the tunings every note can be had)
 	return Kit.INSTRUMENTS[inst].base + key + steps[b] + (1 if mods.sharp else 0) - (1 if mods.flat else 0) \
@@ -334,6 +342,8 @@ func _note_off(id: Variant) -> void:
 
 func _loop_note(i: int, b: int, _n: int) -> void:
 	man.on_note(i, maxi(b, 0), false)
+	if i == Kit.CHOIR:
+		crowd.sing(0.5)
 	hud.played_by_loop(i)
 
 
@@ -522,6 +532,8 @@ func load_game() -> bool:
 
 # The number after `prefix` if `id` is that prefix and one digit, else -1
 static func _numbered(id: String, prefix: String) -> int:
-	if id.length() == prefix.length() + 1 and id.begins_with(prefix) and id[-1].is_valid_int():
-		return int(id[-1])
+	# (one figure, or two: there are more than ten instruments)
+	var number := id.trim_prefix(prefix)
+	if id.begins_with(prefix) and number.length() in [1, 2] and number.is_valid_int():
+		return int(number)
 	return -1

@@ -8,7 +8,8 @@ const GUITAR := 3
 const TUBA := 4
 const BELLS := 5
 const DRUMS := 6
-const KEYTAR := 7
+const ORGAN := 7
+const CHOIR := 10
 const THEREMIN := 8
 const VIOLA := 9
 
@@ -24,15 +25,35 @@ const INSTRUMENTS: Array[Dictionary] = [
 	{"id": "tuba", "name": "Tuba", "base": 36, "bases": [36, 48, 60], "held": true, "release": 0.1, "gm": 58, "db": -3.0, "color": Color("b98cff")},
 	{"id": "bells", "name": "Bells", "base": 72, "bases": [72, 84, 96], "held": false, "gm": 9, "db": -8.0, "color": Color("ffa6d0")},
 	{"id": "drums", "name": "Drums", "base": 0, "bases": [], "held": false, "gm": 0, "db": -3.0, "color": Color("9be06a")},
-	{"id": "keytar", "name": "Keytar", "base": 60, "bases": [48, 60, 72], "held": true, "release": 0.05, "gm": 81, "db": -10.0, "color": Color("ff5fd2")},
+	{"id": "organ", "name": "Organ", "base": 60, "bases": [48, 60, 72], "held": true, "release": 0.08, "gm": 19, "db": -9.0, "color": Color("e06a8c")},
 	{"id": "theremin", "name": "Theremin", "base": 60, "bases": [60, 72, 84], "held": true, "release": 0.3, "gm": 78, "db": -5.0, "color": Color("f5f1e6")},
 	{"id": "viola", "name": "Viola", "base": 48, "bases": [48, 60, 72], "held": true, "release": 0.16, "gm": 41, "db": -6.0, "color": Color("8fb4ff")},
+	# (the little folk on the green, singing: he conducts)
+	{"id": "choir", "name": "Choir", "base": 60, "bases": [48, 60, 72], "held": true, "release": 0.28, "gm": 52, "db": -6.0, "color": Color("a8e6c9")},
 ]
 
 # The order they are laid out in for picking, and that the number keys go in
-const SHELF: Array[int] = [PICCOLO, TRUMPET, VIOLA, ACCORDION, GUITAR, KEYTAR, THEREMIN, TUBA, BELLS, DRUMS]
+const SHELF: Array[int] = [PICCOLO, TRUMPET, VIOLA, ACCORDION, GUITAR, ORGAN, THEREMIN, TUBA, BELLS, DRUMS, CHOIR]
 
-const DRUM_NAMES := ["Kick", "Snare", "Hat", "Tom", "Crash"]
+# Three kits of five drums: the trap set, the big low ones (with the low octave key on) and the
+# toys (with the high one). A drum's note says which kit it is from and how far it is bent:
+# DRUM_KIT down or up for the kit, and whatever is left over in semitones.
+const DRUM_NAMES := ["Kick", "Snare", "Hat", "Tom", "Crash", "Boom", "Rim", "Open", "Floor", "Ride", "Clap", "Block", "Shake", "Bell", "Splash"]
+const DRUM_KIT := 40
+
+
+static func drum_kit(n: int) -> int:
+	return clampi(roundi(n / float(DRUM_KIT)), -1, 1)
+
+
+# Which of DRUM_NAMES button `b` is, for a note `n`
+static func drum(b: int, n: int) -> int:
+	var kit := drum_kit(n)
+	return posmod(b, 5) + (0 if kit == 0 else (5 if kit < 0 else 10))
+
+
+static func drum_bend(n: int) -> int:
+	return n - DRUM_KIT * drum_kit(n)
 
 # The five buttons from the lowest to the highest, as semitones above the key note.
 # The first is the old ocarina tuning: in C it gives D F A B D.

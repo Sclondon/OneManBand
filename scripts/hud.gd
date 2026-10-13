@@ -461,7 +461,7 @@ func _dot(at: Vector2, r: float, b: int, alpha: float, label := "") -> void:
 # What is written on a note: its name, or the first letter of the drum
 func _label(inst: int, b: int, n: int) -> String:
 	if Kit.is_drums(inst):
-		return Kit.DRUM_NAMES[posmod(b, 5)][0]
+		return Kit.DRUM_NAMES[Kit.drum(b, n)].left(2)
 	return Kit.note_name(n)
 
 
@@ -572,7 +572,7 @@ func _draw_pad(b: int) -> void:
 	_oval(c + Vector2(0, -rad * 0.45), Vector2(rad * 0.56, rad * 0.24), Color(1, 1, 1, 0.3))
 	var ink := col.darkened(0.72)
 	if Kit.is_drums(band.inst):
-		_text(c + Vector2(0, 2), Kit.DRUM_NAMES[b], int(rad * 0.44), ink)
+		_text(c + Vector2(0, 2), Kit.DRUM_NAMES[Kit.drum(b, band.pad_note(b))], int(rad * 0.44), ink)
 	else:
 		var label := Kit.note_name(band.pad_note(b))
 		_text(c + Vector2(0, 3), label, int(rad * (1.0 if label.length() == 1 else 0.78)), ink)
@@ -621,10 +621,10 @@ func _draw_bender(id: String, c: Vector2, ink: Color) -> void:
 					c + Vector2(4, 11), c + Vector2(-9, 18)], ink, 4.0, true)
 		"up":
 			_arrow(c + Vector2(-27, -2), Vector2.UP, 11.0, ink)
-			_text(c + Vector2(13, 0), "octave", 15, Color(ink, 0.85))
+			_text(c + Vector2(13, 0), "toys" if Kit.is_drums(band.inst) else "octave", 15, Color(ink, 0.85))
 		"down":
 			_arrow(c + Vector2(-27, 1), Vector2.DOWN, 11.0, ink)
-			_text(c + Vector2(13, 0), "octave", 15, Color(ink, 0.85))
+			_text(c + Vector2(13, 0), "big" if Kit.is_drums(band.inst) else "octave", 15, Color(ink, 0.85))
 
 
 # A little picture of instrument `i`, about 54 across at scale 1, in `col` with its own shade and shine
@@ -699,13 +699,31 @@ func _draw_instrument(i: int, c: Vector2, k: float, col: Color) -> void:
 			draw_colored_polygon([c + Vector2(-20, 13) * k, c + Vector2(20, 13) * k, c + Vector2(18, 17) * k, c + Vector2(-18, 17) * k], dark)
 			draw_line(c + Vector2(-7, -9) * k, c + Vector2(-10, 5) * k, pale, 3.0 * k, true)
 			draw_circle(c + Vector2(0, 21) * k, 4.6 * k, dark)
-		Kit.KEYTAR:
-			draw_line(c + Vector2(6, -6) * k, c + Vector2(27, -19) * k, dark, 6.0 * k, true)
-			draw_colored_polygon([c + Vector2(-26, -3) * k, c + Vector2(10, -13) * k, c + Vector2(14, 6) * k, c + Vector2(-23, 17) * k], col)
-			draw_colored_polygon([c + Vector2(-22, 3) * k, c + Vector2(8, -5) * k, c + Vector2(10, 3) * k, c + Vector2(-20, 12) * k], CREAM)
-			for t: float in [0.15, 0.3, 0.45, 0.6, 0.75, 0.9]:
-				draw_line(c + Vector2(-22, 3).lerp(Vector2(8, -5), t) * k, c + Vector2(-21, 8).lerp(Vector2(9, 0), t) * k, hole, 2.2 * k)
-			draw_circle(c + Vector2(-17, -1) * k, 2.4 * k, pale)
+		Kit.ORGAN:
+			# A rank of pipes, tall at the ends and short in the middle, over a keyboard
+			for j in 7:
+				var x := -21.0 + j * 7.0
+				var tall := 12.0 + absf(j - 3.0) * 6.0
+				_box(Rect2(c + Vector2(x - 2.6, 6.0 - tall) * k, Vector2(5.2, tall) * k), col if j % 2 == 0 else pale, 2.0 * k)
+				draw_line(c + Vector2(x - 1.6, 1.5) * k, c + Vector2(x + 1.6, 1.5) * k, hole, 1.6 * k)
+			_box(Rect2(c + Vector2(-25, 6) * k, Vector2(50, 13) * k), dark, 3.0 * k)
+			_box(Rect2(c + Vector2(-22, 9) * k, Vector2(44, 7) * k), CREAM, 1.5 * k)
+			for j in 7:
+				draw_line(c + Vector2(-17.0 + j * 5.6, 9) * k, c + Vector2(-17.0 + j * 5.6, 13) * k, hole, 2.0 * k)
+		Kit.CHOIR:
+			# Three of the little folk with their mouths open: a satyr's horns, and an imp's straw hat
+			for j in 3:
+				var at := c + Vector2(-17.0 + j * 17.0, -5.0 if j == 1 else 5.0) * k
+				if j == 0:
+					draw_line(at + Vector2(-5, -6) * k, at + Vector2(-8, -14) * k, pale, 3.0 * k, true)
+					draw_line(at + Vector2(5, -6) * k, at + Vector2(8, -14) * k, pale, 3.0 * k, true)
+				draw_circle(at, 9.6 * k, dark)
+				draw_circle(at, 8.0 * k, col)
+				draw_circle(at + Vector2(0, 3) * k, 3.4 * k, hole)
+				draw_circle(at + Vector2(-3.2, -2.4) * k, 1.2 * k, hole)
+				draw_circle(at + Vector2(3.2, -2.4) * k, 1.2 * k, hole)
+				if j == 2:
+					draw_colored_polygon([at + Vector2(-13, -5) * k, at + Vector2(0, -19) * k, at + Vector2(13, -5) * k], pale)
 		Kit.THEREMIN:
 			_box(Rect2(c + Vector2(-17, 2) * k, Vector2(34, 17) * k), dark, 3.0 * k)
 			_box(Rect2(c + Vector2(-15, 4) * k, Vector2(30, 13) * k), col.darkened(0.2), 2.0 * k)
@@ -781,11 +799,11 @@ func _draw_menu() -> void:
 func _draw_help() -> void:
 	var w := minf(size_now.x - 40.0, 660.0)
 	var lines := [
-		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. Hold one for as long as you want the note. The stick bends what is sounding: up and down for pitch, sideways for a wobble. Under it, flat and sharp move the buttons a half step while you hold them (so every note can be had), and the two octave keys drop or raise them an octave.",
-		"Along the bottom is everything he carries. Tap one and he plays that.",
+		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. Hold one for as long as you want the note. The stick bends what is sounding: up and down for pitch, sideways for a wobble. Under it are four keys that stay on until you tap them again: flat and sharp move the buttons a half step (so every note can be had), and the two octave keys drop or raise them an octave.",
+		"Along the bottom is everything he carries. Tap one and he plays that. The last is the choir: the little folk line up and sing, and he conducts. On the drums the two octave keys change the kit, to the big low drums or the toys.",
 		"Press the red lamp, wait for four ticks, and play. It comes round again, and again. Change instrument and play over it. The arrow takes back the last thing you added, the dustbin empties this instrument's track, and A B C D are four loops to move between.",
 		"Some tunes do things. They are in the song book, in the menu.",
-		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves, 1 to 0 for instruments, Space to play, R to record, Z to take back.",
+		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves, 1 to 0 and - for instruments, Space to play, R to record, Z to take back.",
 	]
 	var h := 84.0 + 50.0
 	for line: String in lines:
