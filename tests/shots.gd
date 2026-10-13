@@ -85,6 +85,23 @@ func _run() -> void:
 		await _frames(3)
 		await _shot("menu")
 		main.press("close")
+	if _wanted("book"):
+		main.hud.book_open = true
+		await _frames(3)
+		await _shot("book")
+		main.hud.book_open = false
+	if _wanted("party"):
+		main.press("play")
+		main.crowd.dance(20.0)
+		main.stage.release_balloons()
+		main.stage.set_snow(true)
+		main.stage.carnival = true
+		await _frames(200)
+		await _shot("party")
+		main.crowd.play_tag(10.0)
+		await _frames(120)
+		await _shot("tag")
+		main.press("play")
 	if _wanted("help"):
 		main.hud.help_open = true
 		await _frames(3)

@@ -23,8 +23,8 @@ PURPLE_D = "#43266b"
 PURPLE_L = "#9263c9"
 GOLD = "#f0c23a"
 GOLD_D = "#b98614"
-SKIN = "#f3d5b0"
-SKIN_D = "#d8a47a"
+SKIN = "#ddd6b8"
+SKIN_D = "#b3a586"
 HAIR = "#e86a1c"
 HAIR_D = "#b0440e"
 WHITE = "#f4f0e2"
@@ -245,7 +245,7 @@ def build_bandsman():
         head.cyl((0.14 * s, -0.04, 1.73), (0.132 * s, -0.065, 1.6), 0.03, 0.006, HAIR_D)
         head.ball((0.142 * s, 0.0, 1.67), (0.02, 0.035, 0.05), SKIN_D, seg=5, rings=3)
     head.cyl((0, 0.15, 1.66), (0, 0.25, 1.58), 0.07, 0.008, HAIR_D)
-    head.cyl((0, -0.13, 1.665), (0, -0.225, 1.64), 0.03, 0.006, "#e8b88e", seg=5)
+    head.cyl((0, -0.13, 1.665), (0, -0.225, 1.64), 0.03, 0.004, "#c4b48f", seg=5)
     # A little fez, worn at an angle
     head.cyl((-0.05, 0.0, 1.855), (-0.075, 0.01, 1.975), 0.078, 0.056, RED, RED_D)
     head.cyl((-0.048, 0.0, 1.85), (-0.053, 0.002, 1.875), 0.083, 0.08, GOLD)
@@ -256,7 +256,7 @@ def build_bandsman():
     face = Part("face", head, (0, 0, 1.5))
     centre = Vector((0, 0, 1.67))
     size = Vector((0.145, 0.15, 0.185))
-    verts = face.ball(centre, tuple(size), SKIN, "#ebc8a0", seg=10, rings=7)
+    verts = face.ball(centre, tuple(size), SKIN, "#cbc2a0", seg=10, rings=7)
     for v in verts:
         low = max(0.0, (centre.z - v.co.z) / size.z)
         k = 1.0 - 0.38 * low ** 1.3
@@ -284,6 +284,9 @@ def build_bandsman():
         ha = Part("hand_" + side, fo, (x, 0, 0.86))
         ha.ball((x, 0, 0.81), (0.04, 0.032, 0.055), SKIN, SKIN_D, seg=6, rings=4)
         ha.ball((x, -0.03, 0.83), 0.018, SKIN, seg=5, rings=3)
+        # (fingers a joint too long)
+        for k in range(4):
+            ha.cyl((x - 0.03 + k * 0.02, -0.005, 0.775), (x - 0.036 + k * 0.024, -0.012, 0.675), 0.011, 0.003, SKIN, SKIN_D, seg=4)
 
         x = 0.1 * s
         th = Part("thigh_" + side, hips, (x, 0, 0.92))
@@ -507,11 +510,12 @@ def tree(part, x, y, s, pine, rnd):
     if pine:
         for i in range(3):
             z = (0.9 + i * 0.75) * s
-            part.cyl((x, y, z), (x, y, z + 1.25 * s), (1.15 - i * 0.28) * s, 0.0, GREEN_DD, GREEN_D, seg=6)
+            part.cyl((x, y, z), (x, y, z + 1.25 * s), (1.15 - i * 0.28) * s, 0.0, "#101f18", "#1f3d28", seg=6)
     else:
-        part.ball((x, y, 2.1 * s), (1.2 * s, 1.2 * s, 1.0 * s), GREEN_L, GREEN_D, seg=6, rings=4)
-        part.ball((x + 0.6 * s, y - 0.2 * s, 1.75 * s), 0.7 * s, GREEN, GREEN_D, seg=6, rings=4)
-        part.ball((x - 0.65 * s, y + 0.1 * s, 1.8 * s), 0.65 * s, GREEN, GREEN_D, seg=6, rings=4)
+        # (October: what leaves are left have turned)
+        part.ball((x, y, 2.1 * s), (1.2 * s, 1.2 * s, 1.0 * s), "#e0892a", "#8a3414", seg=6, rings=4)
+        part.ball((x + 0.6 * s, y - 0.2 * s, 1.75 * s), 0.7 * s, "#c8571e", "#6e2410", seg=6, rings=4)
+        part.ball((x - 0.65 * s, y + 0.1 * s, 1.8 * s), 0.65 * s, "#d9a020", "#8a4a14", seg=6, rings=4)
 
 
 def build_stage():
@@ -522,7 +526,7 @@ def build_stage():
     ground = Part("ground")
     bm = ground.bm
     radii = [0.0, 2.3, 3.3, 5.5, 9.0, 14.0, 22.0, 34.0]
-    tones = [DIRT, DIRT, GREEN_L, GREEN, GREEN, GREEN_D, GREEN_D, GREEN_DD]
+    tones = [DIRT, DIRT, "#8a8f3e", "#6f7d36", "#5e6e30", "#465a2a", "#34482a", "#22321f"]
     seg = 18
     rings = []
     shade = {}
@@ -561,21 +565,21 @@ def build_stage():
         stand.cyl((2.4 * s, 1.7, 0), (2.4 * s, 1.7, 3.5), 0.1, 0.07, BROWN_D, BROWN, seg=6)
         stand.cyl((2.4 * s, 1.7, 3.5), (2.4 * s, 1.7, 3.62), 0.14, 0.1, GOLD_D, GOLD, seg=6)
     stand.cyl((-2.5, 1.7, 3.2), (2.5, 1.7, 3.2), 0.05, 0.05, BROWN, seg=5)
-    cloth = [RED, PURPLE, RED_D, PURPLE_D, RED, PURPLE]
-    under = [RED_D, PURPLE_D, "#5c1213", "#2c1848", RED_D, PURPLE_D]
+    cloth = ["#a81f1f", "#1c1622", "#a81f1f", "#1c1622", "#a81f1f", "#1c1622"]
+    under = ["#3f0b0e", "#0b080e", "#3f0b0e", "#0b080e", "#3f0b0e", "#0b080e"]
     for i in range(6):
         x = -2.0 + i * 0.8
         stand.box((x, 1.72 + (i % 2) * 0.04, 1.85), (0.82, 0.04, 2.7), cloth[i], under[i])
         stand.cyl((x, 1.66, 3.2), (x, 1.66, 2.82), 0.4, 0.0, GOLD, GOLD_D, seg=4)
     # A barrel, a crate, and a hat for coins
-    stand.cyl((2.75, -0.5, 0), (2.75, -0.5, 0.85), 0.34, 0.34, BROWN, WOOD, seg=8)
+    stand.cyl((4.2, 0.2, 0), (4.2, 0.2, 0.85), 0.34, 0.34, BROWN, WOOD, seg=8)
     for z in (0.15, 0.7):
-        stand.cyl((2.75, -0.5, z), (2.75, -0.5, z + 0.06), 0.355, 0.355, STONE_D, seg=8)
-    stand.box((-2.8, -0.3, 0.35), (0.7, 0.7, 0.7), WOOD, BROWN, rot=(0, 0, 0.4))
-    stand.box((-2.7, -0.25, 0.9), (0.45, 0.45, 0.4), WOOD_L, BROWN, rot=(0, 0, -0.3))
-    stand.cyl((1.15, -1.3, 0.228), (1.15, -1.3, 0.42), 0.13, 0.15, DARK, seg=8)
-    stand.cyl((1.15, -1.3, 0.228), (1.15, -1.3, 0.24), 0.24, 0.24, DARK, seg=8)
-    stand.cyl((1.15, -1.3, 0.3), (1.15, -1.3, 0.33), 0.135, 0.14, RED, seg=8)
+        stand.cyl((4.2, 0.2, z), (4.2, 0.2, z + 0.06), 0.355, 0.355, STONE_D, seg=8)
+    stand.box((-4.3, 0.3, 0.35), (0.7, 0.7, 0.7), WOOD, BROWN, rot=(0, 0, 0.4))
+    stand.box((-4.2, 0.35, 0.9), (0.45, 0.45, 0.4), WOOD_L, BROWN, rot=(0, 0, -0.3))
+    stand.cyl((0.9, -1.87, 0.1), (0.9, -1.87, 0.29), 0.13, 0.15, DARK, seg=8)
+    stand.cyl((0.9, -1.87, 0.1), (0.9, -1.87, 0.112), 0.24, 0.24, DARK, seg=8)
+    stand.cyl((0.9, -1.87, 0.17), (0.9, -1.87, 0.2), 0.135, 0.14, RED, seg=8)
 
     town = Part("town")
     for x, y, s, pine in ((-5.5, 3.5, 1.5, True), (5.8, 4.2, 1.7, True), (-8.5, 0.5, 1.3, False),
@@ -618,6 +622,42 @@ def build_stage():
             town.cyl((x, y, 0), (x, y, 0.14), 0.012, 0.012, GREEN_D, seg=4)
             town.ball((x, y, 0.16), 0.045, rnd.choice([WHITE, GOLD, PURPLE_L, "#ff8fb0"]), seg=5, rings=3)
 
+    # Trees with nothing left on them
+    for x, y, s in ((-4.6, 1.4, 1.5), (5.2, 0.6, 1.3), (-9.5, 4.5, 2.0), (7.6, 9.5, 1.8)):
+        town.cyl((x, y, 0), (x + 0.1 * s, y, 1.6 * s), 0.16 * s, 0.09 * s, "#1f150f", "#2e2018", seg=5)
+        for k in range(5):
+            a = k * 1.9 + x
+            base = Vector((x + 0.1 * s, y, (1.0 + k * 0.22) * s))
+            tip = base + Vector((math.cos(a) * 0.8, math.sin(a) * 0.5, 0.55 + k * 0.1)) * s
+            town.cyl(base, tip, 0.05 * s, 0.01 * s, "#2e2018", seg=4)
+            town.cyl(tip, tip + Vector((math.cos(a + 1.0) * 0.35, 0.1, 0.3)) * s, 0.02 * s, 0.0, "#2e2018", seg=4)
+    # Pumpkins by the stand
+    for x, y, r in ((2.9, -0.7, 0.2), (3.2, -0.35, 0.14), (-3.0, -0.6, 0.17), (-2.6, 1.9, 0.22), (2.7, 1.8, 0.16)):
+        town.ball((x, y, r * 0.75), (r, r, r * 0.78), "#e8761c", "#a8440e", seg=7, rings=4)
+        town.cyl((x, y, r * 1.45), (x + 0.02, y, r * 1.8), 0.025, 0.015, "#3d4a1c", seg=4)
+    # The big top beyond the trees, striped, and the legs the wheel stands on
+    for k in range(14):
+        a = math.tau * k / 14
+        town.box((10.0 + math.cos(a) * 5.0, 23.0 + math.sin(a) * 5.0, 1.7), (2.3, 0.2, 3.4),
+                 "#a81f1f" if k % 2 == 0 else "#d8cfae", "#1c1622", rot=(0, 0, a + math.pi / 2))
+    town.cyl((10.0, 23.0, 3.3), (10.0, 23.0, 7.6), 5.6, 0.3, "#7a1518", "#a81f1f", seg=14)
+    town.cyl((10.0, 23.0, 7.6), (10.0, 23.0, 9.2), 0.06, 0.06, DARK, seg=4)
+    town.cyl((10.0, 23.0, 9.2), (10.9, 23.0, 8.95), 0.3, 0.0, "#d8cfae", seg=3)
+    for s in (1, -1):
+        town.cyl((-13.0 + 3.0 * s, 25.0, 0), (-13.0, 25.0, 7.5), 0.16, 0.12, "#1c1622", seg=5)
+
+    wheel = Part("wheel", None, (-13.0, 24.7, 7.5))
+    for k in range(12):
+        a = math.tau * k / 12
+        b = math.tau * (k + 1) / 12
+        p = Vector((-13.0 + math.cos(a) * 5.2, 24.7, 7.5 + math.sin(a) * 5.2))
+        q = Vector((-13.0 + math.cos(b) * 5.2, 24.7, 7.5 + math.sin(b) * 5.2))
+        wheel.cyl(p, q, 0.09, 0.09, "#1c1622", seg=4)
+        if k % 2 == 0:
+            wheel.cyl((-13.0, 24.7, 7.5), p, 0.06, 0.06, "#1c1622", seg=4)
+        wheel.box(p + Vector((0, 0, -0.45)), (0.7, 0.5, 0.6), "#7a1518" if k % 2 == 0 else "#3b2a4a", "#1c1622")
+    wheel.cyl((-13.0, 24.5, 7.5), (-13.0, 24.9, 7.5), 0.4, 0.4, "#1c1622", seg=8)
+
     # Whatever shines by its own light
     glow = Part("glow_lamps")
     for s in (1, -1):
@@ -625,6 +665,13 @@ def build_stage():
         glow.cyl((1.25 * s, 1.62, 3.15), (1.25 * s, 1.62, 2.95), 0.005, 0.005, LAMP, seg=4)
         glow.ball((1.25 * s, 1.62, 2.85), 0.13, LAMP, seg=6, rings=4)
     glow.cyl((-7.0, 14.68, 7.2), (-7.0, 14.7, 7.2), 0.85, 0.85, "#fff3c4", seg=10)
+    # A string of bulbs sagging between the posts and away to either side, not all of them working
+    for k in range(25):
+        t = k / 24.0
+        x = -6.0 + t * 12.0
+        sag = 0.5 * math.sin(math.pi * ((x + 6.0) % 3.6) / 3.6)
+        if k % 7 != 3:
+            glow.ball((x, 1.66, 3.55 - sag), 0.07, ["#ffd76a", "#ff7a4a", "#fff3c4"][k % 3], seg=4, rings=3)
     clock = Part("clock_hands")
     clock.box((-7.0, 14.66, 7.5), (0.1, 0.03, 0.62), DARK)
     clock.box((-6.82, 14.66, 7.2), (0.42, 0.03, 0.1), DARK)
@@ -632,5 +679,72 @@ def build_stage():
     write("stage")
 
 
+# The little folk on the green, who have come out of the woods for the music: three satyr
+# kids (goat legs, hooves, horns) and three straw-hatted wood imps (a dark wooden face with
+# lit eyes, a ragged poncho, stick limbs). Each has limbs of its own to run with. They are
+# still named kid0 to kid5, with kidN_leg_L and so on, which is what the game looks for.
+def build_kids():
+    fresh()
+    fur = ["#7a4a22", "#5a3a20", "#9a6a3a"]
+    hide = ["#e0b088", "#c98f62", "#f0c9a0"]
+    cloth = ["#d9572a", "#3f8f4a", "#b03a5a"]
+    wood = "#3a2a1c"
+    straw = "#dcb85e"
+    for i in range(6):
+        size = 0.85 + (i % 3) * 0.1
+        k = i // 2
+        kid = Part("kid%d" % i)
+        if i % 2 == 0:
+            # A satyr
+            kid.ball((0, 0.01, 0.36), (0.13, 0.12, 0.11), fur[k], seg=6, rings=4)
+            kid.cyl((0, 0, 0.38), (0, 0, 0.62), 0.1, 0.105, hide[k], seg=6, flat=0.8)
+            kid.ball((0, 0, 0.62), (0.105, 0.085, 0.04), hide[k], seg=6, rings=3)
+            kid.cyl((0, 0.11, 0.4), (0, 0.19, 0.47), 0.03, 0.0, fur[k], seg=4)
+            kid.ball((0, 0, 0.8), (0.15, 0.145, 0.15), hide[k], seg=8, rings=5)
+            kid.ball((0, 0.03, 0.85), (0.16, 0.16, 0.12), fur[k], seg=8, rings=4)
+            kid.cyl((0, -0.13, 0.69), (0, -0.15, 0.6), 0.03, 0.0, fur[k], seg=4)
+            for s_ in (1, -1):
+                kid.ball((0.055 * s_, -0.135, 0.8), 0.02, DARK, seg=4, rings=3)
+                kid.cyl((0.14 * s_, 0.0, 0.8), (0.27 * s_, 0.03, 0.86), 0.035, 0.0, hide[k], seg=4)
+                kid.cyl((0.07 * s_, 0.0, 0.92), (0.11 * s_, 0.04, 1.02), 0.03, 0.02, CREAM, seg=5)
+                kid.cyl((0.11 * s_, 0.04, 1.02), (0.1 * s_, 0.1, 1.08), 0.02, 0.0, CREAM, seg=5)
+            kid.ball((0, -0.143, 0.745), (0.04, 0.012, 0.012), "#8a2a22", seg=4, rings=3)
+        else:
+            # A wood imp
+            kid.cyl((0, 0, 0.26), (0, 0, 0.66), 0.2, 0.07, cloth[k], seg=7)
+            for a in range(7):
+                ang = math.tau * a / 7
+                kid.cyl((math.cos(ang) * 0.17, math.sin(ang) * 0.17, 0.27), (math.cos(ang) * 0.2, math.sin(ang) * 0.2, 0.17),
+                        0.045, 0.0, cloth[k], seg=4)
+            kid.cyl((0, 0, 0.6), (0, 0, 0.68), 0.1, 0.075, cloth[(k + 1) % 3], seg=6)
+            kid.ball((0, 0, 0.8), (0.14, 0.14, 0.145), wood, seg=8, rings=5)
+            for s_ in (1, -1):
+                kid.ball((0.055 * s_, -0.125, 0.81), (0.034, 0.02, 0.04), "#ffb52e", seg=5, rings=3)
+            kid.cyl((0, -0.13, 0.76), (0, -0.2, 0.74), 0.03, 0.0, "#e8c890", seg=4)
+            kid.cyl((0, 0, 0.9), (0, 0, 0.93), 0.3, 0.27, straw, seg=8)
+            kid.cyl((0, 0, 0.93), (0, 0, 1.12), 0.17, 0.02, straw, "#b8923c", seg=8)
+            kid.cyl((0, 0, 0.93), (0, 0, 0.965), 0.172, 0.16, cloth[(k + 1) % 3], seg=8)
+        for s_, side in ((1, "L"), (-1, "R")):
+            leg = Part("kid%d_leg_%s" % (i, side), kid, (0.055 * s_, 0, 0.32))
+            arm = Part("kid%d_arm_%s" % (i, side), kid, (0.13 * s_, 0, 0.58))
+            if i % 2 == 0:
+                leg.cyl((0.055 * s_, 0.02, 0.17), (0.055 * s_, 0, 0.32), 0.045, 0.07, fur[k], seg=5)
+                leg.cyl((0.055 * s_, -0.01, 0.05), (0.055 * s_, 0.02, 0.17), 0.028, 0.04, fur[k], seg=5)
+                leg.cyl((0.055 * s_, -0.02, 0.0), (0.055 * s_, -0.01, 0.06), 0.045, 0.035, DARK, seg=5)
+                arm.cyl((0.15 * s_, 0, 0.36), (0.13 * s_, 0, 0.58), 0.032, 0.04, hide[k], seg=5)
+                arm.ball((0.15 * s_, 0, 0.35), 0.04, hide[k], seg=5, rings=3)
+            else:
+                leg.cyl((0.055 * s_, 0, 0.05), (0.055 * s_, 0, 0.32), 0.022, 0.026, wood, seg=4)
+                leg.cyl((0.055 * s_, 0.03, 0.03), (0.055 * s_, -0.13, 0.05), 0.04, 0.0, cloth[(k + 1) % 3], seg=5)
+                arm.cyl((0.145 * s_, 0, 0.46), (0.13 * s_, 0, 0.58), 0.05, 0.035, cloth[k], seg=5)
+                arm.cyl((0.16 * s_, 0, 0.33), (0.145 * s_, 0, 0.46), 0.02, 0.022, wood, seg=4)
+                arm.ball((0.16 * s_, 0, 0.32), 0.03, wood, seg=5, rings=3)
+        for part in PARTS[-5:]:
+            part.resize(size)
+            part.pivot = part.pivot * size
+    write("kids")
+
+
 build_bandsman()
 build_stage()
+build_kids()

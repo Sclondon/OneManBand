@@ -51,6 +51,8 @@ var time := 0.0
 var turn := 0
 var hips_at := Vector3.ZERO
 var last_pad := 0
+var quiet := 0.0          # seconds since there was any music
+var glance := 7.0         # seconds until he next looks straight at you
 var bowing := 0.0
 
 
@@ -125,6 +127,7 @@ func choose(which: int, at_once := false) -> void:
 # made it jumps and lets a note go
 func on_note(which: int, b: int, live: bool) -> void:
 	energy = minf(1.0, energy + (0.4 if live else 0.12))
+	quiet = 0.0
 	var from: Node3D = _piece(which, b)
 	_pop(from)
 	if stage != null:
@@ -170,6 +173,14 @@ func _process(delta: float) -> void:
 	energy = maxf(0.0, energy - delta * 0.6)
 	stomp = maxf(0.0, stomp - delta * 5.0)
 	stare = maxf(0.0, stare - delta)
+	# Left with nothing to play, he stops moving and looks at you. And now and then, mid-tune,
+	# his eyes come open for a moment.
+	quiet = 0.0 if phase >= 0.0 else quiet + delta
+	glance -= delta
+	if glance <= 0.0:
+		glance = randf_range(6.0, 14.0)
+		stare = maxf(stare, 0.45)
+	var frozen := clampf((quiet - 6.0) * 0.5, 0.0, 1.0)
 	lift = maxf(1.0 if holding and _blown() else 0.0, lift - delta * 2.5)
 	half = lerpf(half, half_to, 1.0 - exp(-9.0 * delta))
 	for h in 2:
@@ -178,18 +189,19 @@ func _process(delta: float) -> void:
 	# How hard the beat lands, sharpest on the beat itself
 	var dip := pow(1.0 - phase, 3.0) if phase >= 0.0 else 0.0
 	var tap := 0.5 - 0.5 * cos(TAU * phase) if phase >= 0.0 else 0.0
-	var still := 0.25 if _blown() else 1.0
-	rotation.y = 0.2 * sin(time * 0.35)
+	var still := (0.25 if _blown() else 1.0) * (1.0 - frozen)
+	rotation.y = 0.2 * sin(time * 0.35) * (1.0 - frozen)
 	p.hips.position = hips_at + Vector3(0.0, -0.04 * dip - 0.008 * sin(time * 1.7) - 0.02 * stomp, 0.0)
 	p.torso.rotation = Vector3(0.09 + 0.03 * sin(time * 1.3) + 0.06 * energy - 0.12 * lift * (1.0 - still + 0.25),
 			0.0, 0.05 * sin(time * 0.9) * still)
-	p.head.rotation = Vector3(-0.06 + 0.07 * dip - 0.1 * lift, 0.14 * sin(time * 0.6) * still,
-			(0.13 * sin(time * 0.8 + 1.0) + 0.05) * still)
+	# (his head goes over to one side a little further than a head should, and slower)
+	p.head.rotation = Vector3(-0.06 + 0.07 * dip - 0.1 * lift + 0.1 * frozen, 0.14 * sin(time * 0.6) * still,
+			(0.3 * sin(time * 0.31 + 1.0) + 0.06) * (0.3 if _blown() else 1.0) * (1.0 - frozen) + 0.42 * frozen)
 	p.foot_R.rotation.x = -0.5 * tap
 	p.thigh_L.rotation.x = -0.55 * stomp
 	p.shin_L.rotation.x = 0.9 * stomp
 
-	var look := "stare" if stare > 0.0 else ("blow" if lift > 0.3 and _blown() else "grin")
+	var look := "stare" if stare > 0.0 or frozen > 0.5 else ("blow" if lift > 0.3 and _blown() else "grin")
 	skin.set_shader_parameter("face", faces[look])
 
 	var ease := 1.0 - exp(-14.0 * delta)
@@ -348,9 +360,12 @@ static func _down(v: Vector3) -> Basis:
 # His face, painted fresh: a wide closed-eyed grin, lips pursed to blow, or the eyes open
 func _paint_face(kind: String) -> ImageTexture:
 	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-	var puff := 1.3 if kind == "blow" else 1.0
-	for x: float in [12.0, 52.0]:
-		_blob(img, Vector2(x, 40.0), Vector2(6.0, 4.0) * puff, Color(0.96, 0.45, 0.42, 0.5))
+	if kind == "blow":
+		for x: float in [12.0, 52.0]:
+			_blob(img, Vector2(x, 40.0), Vector2(7.5, 5.0), Color(0.8, 0.42, 0.45, 0.4))
+	# (he does not sleep well)
+	for x: float in [21.0, 43.0]:
+		_blob(img, Vector2(x, 34.5), Vector2(8.0, 4.5), Color(0.34, 0.2, 0.42, 0.42))
 	for x: float in [21.0, 43.0]:
 		var out := signf(x - 32.0)
 		if kind == "stare":
@@ -360,25 +375,29 @@ func _paint_face(kind: String) -> ImageTexture:
 			_blob(img, Vector2(x, 28.5), Vector2(1.1, 1.1), INK)
 			_stroke(img, Vector2(x + out * 8.0, 18.5), Vector2(x - out * 6.0, 22.0), 1.5, INK)
 		else:
-			_arc(img, Vector2(x, 31.0), 6.5, 1.7, INK)
-			_stroke(img, Vector2(x + out * 8.0, 20.5), Vector2(x - out * 5.0, 19.0), 1.2, INK)
+			# Smiling shut, but not all the way: a sliver of eye under each lid
+			_blob(img, Vector2(x, 30.2), Vector2(4.6, 1.5), Color("fffdf2"))
+			_blob(img, Vector2(x - out * 0.8, 30.2), Vector2(1.3, 1.3), Color("6e160c"))
+			_arc(img, Vector2(x, 31.0), 6.5, 2.0, INK)
+			_stroke(img, Vector2(x + out * 9.0, 22.0), Vector2(x - out * 5.0, 17.5), 1.2, INK)
 	if kind == "blow":
 		_blob(img, Vector2(32.0, 48.5), Vector2(4.2, 4.8), INK)
 		_blob(img, Vector2(32.0, 48.5), Vector2(2.3, 2.9), Color("7c2a22"))
 	else:
 		# The grin: teeth between a shallow curve and a deep one
-		for y in range(38, 58):
-			for x in range(14, 51):
-				var u := (x - 32.0) / 16.5
+		for y in range(38, 60):
+			for x in range(11, 54):
+				var u := (x - 32.0) / 19.5
 				if absf(u) >= 1.0:
 					continue
 				var arc := sqrt(1.0 - u * u)
 				var top := 43.0 + 2.5 * arc
-				var low := 43.0 + 10.5 * arc
+				var low := 43.0 + 12.5 * arc
 				if y < top - 1.2 or y > low + 1.2:
 					continue
 				var edge := minf(y - top, low - y)
-				var c := INK if edge < 0.9 or (x % 5 == 2 and edge < 6.0) else Color("fffdf2")
+				# (more teeth than there is room for)
+				var c := INK if edge < 0.9 or (x % 3 == 2 and edge < 7.0) else Color("f6f0d6")
 				_dab(img, x, y, c, clampf(edge + 1.2, 0.0, 1.0))
 	return ImageTexture.create_from_image(img)
 

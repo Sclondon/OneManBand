@@ -9,7 +9,7 @@ extends Node
 
 const KEYS := {
 	KEY_A: "n0", KEY_S: "n1", KEY_D: "n2", KEY_F: "n3", KEY_G: "n4",
-	KEY_LEFT: "flat", KEY_RIGHT: "sharp", KEY_DOWN: "down", KEY_UP: "up",
+	KEY_Q: "down", KEY_E: "up",
 	KEY_SPACE: "play", KEY_R: "rec", KEY_Z: "undo", KEY_M: "metro", KEY_ESCAPE: "close",
 }
 const NUMBER_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0]
@@ -17,7 +17,7 @@ const FOV := 38.0
 # What the camera has to keep in the picture: the middle of him, and how tall and wide he is
 const SUBJECT := Vector3(0.0, 1.55, 0.0)
 const TALL := 2.95
-const BROAD := 2.5
+const BROAD := 2.9
 
 var save_path := "user://one_man_band.json"
 var show_help_first := true
@@ -26,6 +26,7 @@ var synth: Synth
 var looper: Looper
 var stage: Stage
 var man: Bandsman
+var crowd: Crowd
 var hud: Hud
 var view: SubViewport
 var camera: Camera3D
@@ -33,7 +34,9 @@ var camera: Camera3D
 var inst := 0
 var key := 0
 var tuning := 0
-var mods := {"flat": false, "sharp": false, "down": false, "up": false}
+var mods := {"down": false, "up": false}
+var bend := 0.0           # semitones the stick has everything bent by, this instant
+var _arrows := {}
 var held := {}            # button (or "m60" for a MIDI key) -> [voice, recording token]
 var recent: Array[int] = []
 var midi_open := false
@@ -61,6 +64,8 @@ func _ready() -> void:
 	man.stage = stage
 	man.position.y = Stage.FLOOR
 	view.add_child(man)
+	crowd = Crowd.new()
+	view.add_child(crowd)
 	camera = Camera3D.new()
 	camera.fov = FOV
 	camera.far = 200.0
@@ -73,6 +78,19 @@ func _ready() -> void:
 	screen.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(screen)
+	var shade := GradientTexture2D.new()
+	shade.fill = GradientTexture2D.FILL_RADIAL
+	shade.fill_from = Vector2(0.5, 0.5)
+	shade.fill_to = Vector2(1.0, 1.0)
+	shade.gradient = Gradient.new()
+	shade.gradient.offsets = PackedFloat32Array([0.45, 1.0])
+	shade.gradient.colors = PackedColorArray([Color(0.04, 0.0, 0.06, 0.0), Color(0.04, 0.0, 0.06, 0.7)])
+	var edges := TextureRect.new()
+	edges.texture = shade
+	edges.set_anchors_preset(Control.PRESET_FULL_RECT)
+	edges.stretch_mode = TextureRect.STRETCH_SCALE
+	edges.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(edges)
 	hud = Hud.new()
 	hud.band = self
 	add_child(hud)
@@ -117,6 +135,12 @@ func _process(delta: float) -> void:
 	time += delta
 	man.phase = looper.beat_phase()
 	man.holding = not held.is_empty()
+	# Up and down on the stick is a whole tone either way; sideways is a wobble
+	bend = hud.stick_now.y * 2.0 + sin(time * TAU * 6.0) * 0.5 * absf(hud.stick_now.x)
+	for id: Variant in held:
+		synth.bend(held[id][0], bend)
+	crowd.phase = man.phase
+	crowd.lively = looper.playing or man.energy > 0.15
 	_aim()
 	if _radio_wait > 0.0:
 		_radio_wait -= delta
@@ -135,6 +159,13 @@ func _notification(what: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and not event.echo:
+		# The arrow keys push the stick
+		if event.physical_keycode in [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN]:
+			_arrows[event.physical_keycode] = event.pressed
+			hud.stick_keys = Vector2(float(_arrows.get(KEY_RIGHT, false)) - float(_arrows.get(KEY_LEFT, false)),
+					float(_arrows.get(KEY_UP, false)) - float(_arrows.get(KEY_DOWN, false)))
+			get_viewport().set_input_as_handled()
+			return
 		var id: String = KEYS.get(event.physical_keycode, "")
 		var number := NUMBER_KEYS.find(event.physical_keycode)
 		if number >= 0 and number < Kit.SHELF.size():
@@ -191,6 +222,7 @@ func press(id: String) -> void:
 			"close":
 				hud.menu_open = false
 				hud.help_open = false
+				hud.book_open = false
 			"tuning":
 				tuning = (tuning + 1) % Kit.TUNINGS.size()
 				_dirty = true
@@ -224,6 +256,9 @@ func press(id: String) -> void:
 			"help":
 				hud.menu_open = false
 				hud.help_open = true
+			"songbook":
+				hud.menu_open = false
+				hud.book_open = true
 
 
 func release(id: String) -> void:
@@ -248,10 +283,9 @@ func choose(which: int) -> void:
 # The note button `b` gives right now. For the drums it is how far the drum is bent instead.
 func pad_note(b: int) -> int:
 	if Kit.is_drums(inst):
-		return (2 if mods.sharp else 0) - (2 if mods.flat else 0) + (5 if mods.up else 0) - (5 if mods.down else 0)
+		return roundi(hud.stick_now.y * 4.0) + (5 if mods.up else 0) - (5 if mods.down else 0)
 	var steps: Array = Kit.TUNINGS[tuning].steps
-	return Kit.INSTRUMENTS[inst].base + key + steps[b] + (1 if mods.sharp else 0) - (1 if mods.flat else 0) \
-			+ (12 if mods.up else 0) - (12 if mods.down else 0)
+	return Kit.INSTRUMENTS[inst].base + key + steps[b] + (12 if mods.up else 0) - (12 if mods.down else 0)
 
 
 # The button that would give note `n` on instrument `i` with nothing held, or -1
@@ -266,8 +300,11 @@ func pad_of(i: int, n: int) -> int:
 func _pad_on(b: int) -> void:
 	if held.has(b):
 		return
+	# It sounds bent as the stick has it; the loop keeps the nearest whole note to that
 	var n := pad_note(b)
-	held[b] = [synth.play(inst, b, n), looper.record_on(inst, b, n)]
+	var voice := synth.play(inst, b, n)
+	synth.bend(voice, bend)
+	held[b] = [voice, looper.record_on(inst, b, n if Kit.is_drums(inst) else n + roundi(hud.stick_now.y * 2.0))]
 	man.on_note(inst, b, true)
 	hud.played_by_hand(b)
 	if not Kit.is_drums(inst):
@@ -324,6 +361,16 @@ func _tune(tune: Dictionary) -> void:
 			stage.set_rain(not stage.rain)
 		"fireflies":
 			stage.set_fireflies(not stage.fireflies)
+		"dance":
+			crowd.dance(20.0)
+		"tag":
+			crowd.play_tag(16.0)
+		"balloons":
+			stage.release_balloons()
+		"snow":
+			stage.set_snow(not stage.snow)
+		"carnival":
+			stage.carnival = not stage.carnival
 	hud.toast("The %s %s" % [tune.name, tune.hint])
 	_dirty = true
 
@@ -447,7 +494,7 @@ func save_game() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({"v": 1, "inst": inst, "key": key, "tuning": tuning, "night": stage.night,
-			"rain": stage.rain, "fireflies": stage.fireflies, "sound": synth.sound, "song": looper.to_dict()}))
+			"rain": stage.rain, "fireflies": stage.fireflies, "snow": stage.snow, "carnival": stage.carnival, "sound": synth.sound, "song": looper.to_dict()}))
 	f.close()
 
 
@@ -463,6 +510,8 @@ func load_game() -> bool:
 	stage.set_night(bool(data.get("night", false)), true)
 	stage.set_rain(bool(data.get("rain", false)))
 	stage.set_fireflies(bool(data.get("fireflies", false)))
+	stage.set_snow(bool(data.get("snow", false)))
+	stage.carnival = bool(data.get("carnival", false))
 	synth.sound = bool(data.get("sound", true))
 	looper.from_dict(data.song)
 	_dirty = false

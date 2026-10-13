@@ -26,10 +26,46 @@ func _ready() -> void:
 		drums.append(load("res://sounds/drums_%d.res" % i))
 	for i in 2:
 		ticks.append(load("res://sounds/tick_%d.res" % i))
+	_loop_in_the_browser()
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
-		voices.append({"player": p, "id": 0, "held": false, "release": 0.09, "fade": null})
+		voices.append({"player": p, "id": 0, "held": false, "release": 0.09, "pitch": 1.0, "fade": null})
+
+
+# In a browser Godot plays a looping sample by starting it again from the top each time it
+# runs out, attack and all, so a held note would stutter once a second. The browser can loop
+# the held part by itself; this tells it to, for each of our samples (known by its length in
+# frames), as it is started.
+func _loop_in_the_browser() -> void:
+	if not OS.has_feature("web"):
+		return
+	var begins := {}
+	for set in samples:
+		for wav: AudioStreamWAV in set.values():
+			if wav.loop_mode == AudioStreamWAV.LOOP_FORWARD:
+				begins[str(wav.data.size() / 2)] = wav.loop_begin
+	if begins.is_empty():
+		return
+	var rate: int = samples[0].values()[0].mix_rate
+	JavaScriptBridge.eval("""
+		(function (begins, rate) {
+			if (window.oneManBandLoops) return;
+			window.oneManBandLoops = begins;
+			const start = AudioBufferSourceNode.prototype.start;
+			AudioBufferSourceNode.prototype.start = function (...args) {
+				try {
+					const begin = this.buffer ? begins[Math.round(this.buffer.duration * rate)] : undefined;
+					if (begin !== undefined) {
+						this.loop = true;
+						this.loopStart = begin / rate;
+						this.loopEnd = this.buffer.duration;
+					}
+				} catch (e) {}
+				return start.apply(this, args);
+			};
+		})(%s, %d)
+	""" % [JSON.stringify(begins), rate], true)
 
 
 # Starts a note and returns what to stop it by. For the drums `b` is which drum and `n` how far
@@ -52,6 +88,7 @@ func play(inst: int, b: int, n: int, loud := 1.0) -> int:
 	var p: AudioStreamPlayer = v.player
 	p.stream = stream
 	p.pitch_scale = clampf(pitch, 0.25, 4.0)
+	v.pitch = pitch
 	p.volume_db = kit.db + linear_to_db(loud)
 	p.play()
 	v.id = next_id
@@ -69,6 +106,14 @@ func stop(id: int) -> void:
 			v.fade = create_tween()
 			v.fade.tween_property(p, "volume_db", -60.0, v.release)
 			v.fade.tween_callback(p.stop)
+			return
+
+
+# Bends a note that is sounding by so many semitones from where it started
+func bend(id: int, semitones: float) -> void:
+	for v in voices:
+		if v.id == id:
+			v.player.pitch_scale = clampf(v.pitch * pow(2.0, semitones / 12.0), 0.2, 4.0)
 			return
 
 

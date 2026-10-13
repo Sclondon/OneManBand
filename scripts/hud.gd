@@ -2,7 +2,7 @@ class_name Hud
 extends Control
 ## Every control on the screen, drawn by hand and pressed by any number of fingers at once: a
 ## sheet of music along the top, the loop station under it, the instruments, and the five note
-## buttons (each with the name of its note on it) with their four benders. It is dressed like
+## buttons (each with the name of its note on it), with a stick to bend them and two octave keys. It is dressed like
 ## the bandstand: parchment, wood and brass.
 ##
 ## There are no Button nodes. Each control is a rectangle in `buttons`; a finger going down on
@@ -27,8 +27,8 @@ const GOLD := Color("f8ca22")
 # The five note buttons, lowest to highest
 const PAD_COLORS: Array[Color] = [Color("4fb0ff"), Color("58d68d"), Color("f8ca22"), Color("ff9a3d"), Color("ff6b7c")]
 const TRANSPORT := ["rec", "play", "undo", "clear", "mute", "metro", "bpm-", "bpm", "bpm+", "bars", "s0", "s1", "s2", "s3", "menu"]
-const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "radio", "export", "midi", "sound", "help", "close"]
-const BENDERS := ["flat", "sharp", "down", "up"]
+const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "radio", "export", "midi", "sound", "songbook", "help", "close"]
+const BENDERS := ["down", "up"]
 
 var band: Band
 var title_font: Font
@@ -44,6 +44,16 @@ var free_rect := Rect2(0, 0, 1280, 720)
 var menu_rect := Rect2()
 var menu_open := false
 var help_open := false
+var book_open := false
+# The stick: pushed up or down it bends what is sounding, sideways it makes it wobble.
+# `stick` is where a finger has it, `stick_keys` where the arrow keys do, `stick_now` where
+# it has got to (it does not jump), each from -1 to 1 with up as +y
+var stick_at := Vector2.ZERO
+var stick_reach := 72.0
+var stick := Vector2.ZERO
+var stick_keys := Vector2.ZERO
+var stick_now := Vector2.ZERO
+var stick_finger := -1
 var toast_text := ""
 var toast_left := 0.0
 var by_hand: Array = []        # the last notes played, for the staff when nothing is looping: [button, seconds since, name]
@@ -91,8 +101,9 @@ func layout(screen: Vector2) -> void:
 		buttons["n%d" % b] = {"rect": _around(at, rad), "round": true}
 	var pads_left := low.x - rad
 	var pads_top := low.y - 100.0 - rad
-	for k in 4:
-		buttons[BENDERS[k]] = {"rect": Rect2(m + 4.0 + (k % 2) * 108.0, s.y - m - 212.0 + (k / 2) * 108.0, 98.0, 98.0)}
+	for k in 2:
+		buttons[BENDERS[k]] = {"rect": Rect2(m + 4.0 + k * 108.0, s.y - m - 60.0, 98.0, 56.0)}
+	stick_at = Vector2(m + 4.0 + 103.0, s.y - m - 60.0 - 14.0 - stick_reach)
 
 	var count := Kit.SHELF.size()
 	var x0 := m
@@ -114,11 +125,14 @@ func layout(screen: Vector2) -> void:
 	free_rect = Rect2(x0, staff.end.y + 4.0, x1 - x0, top - block - 12.0 - staff.end.y) if wide else Rect2(0.0, y, s.x, top - block - 8.0 - y)
 
 	var cell := Vector2(minf(300.0, (s.x - 64.0) / 2.0), 58.0)
-	menu_rect = Rect2((s.x - cell.x * 2.0 - 44.0) / 2.0, (s.y - 6.0 * (cell.y + 8.0) - 92.0) / 2.0,
-			cell.x * 2.0 + 44.0, 6.0 * (cell.y + 8.0) + 92.0)
+	var rows := ceili(MENU.size() / 2.0)
+	menu_rect = Rect2((s.x - cell.x * 2.0 - 44.0) / 2.0, (s.y - rows * (cell.y + 8.0) - 92.0) / 2.0,
+			cell.x * 2.0 + 44.0, rows * (cell.y + 8.0) + 92.0)
 	for k in MENU.size():
 		var at := menu_rect.position + Vector2(16.0 + (k % 2) * (cell.x + 12.0), 70.0 + (k / 2) * (cell.y + 8.0))
-		buttons["menu:" + MENU[k]] = {"rect": Rect2(at, cell)}
+		# (the last, on a row by itself, takes the whole of it)
+		var alone := k == MENU.size() - 1 and k % 2 == 0
+		buttons["menu:" + MENU[k]] = {"rect": Rect2(at, Vector2(cell.x * 2.0 + 12.0, cell.y) if alone else cell)}
 
 
 # Lays `ids` out in a row `width` wide, centred, and returns where the next row would start
@@ -166,8 +180,9 @@ func played_by_loop(i: int) -> void:
 func key(id: String, down: bool) -> void:
 	var finger := "key:" + id
 	if down and not fingers.has(finger):
-		if help_open or (menu_open and id != "close"):
+		if help_open or book_open or (menu_open and id != "close"):
 			help_open = false
+			book_open = false
 			return
 		fingers[finger] = id
 		_down(id)
@@ -179,9 +194,18 @@ func key(id: String, down: bool) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var at: Vector2 = event.position / fit
+		if event.index == stick_finger and not event.pressed:
+			stick_finger = -1
+			stick = Vector2.ZERO
+			return
 		if event.pressed:
-			if help_open:
+			if help_open or book_open:
 				help_open = false
+				book_open = false
+				return
+			if not menu_open and at.distance_to(stick_at) <= stick_reach * 1.2:
+				stick_finger = event.index
+				_stick_to(at)
 				return
 			var id := _hit(at)
 			if menu_open and id == "":
@@ -193,6 +217,8 @@ func _input(event: InputEvent) -> void:
 		elif fingers.has(event.index):
 			_up(fingers[event.index])
 			fingers.erase(event.index)
+	elif event is InputEventScreenDrag and event.index == stick_finger:
+		_stick_to(event.position / fit)
 	elif event is InputEventScreenDrag and fingers.has(event.index):
 		# Sliding from one note button onto another plays it
 		var now: String = fingers[event.index]
@@ -202,6 +228,11 @@ func _input(event: InputEvent) -> void:
 				_up(now)
 				fingers[event.index] = id
 				_down(id)
+
+
+func _stick_to(at: Vector2) -> void:
+	var push := (at - stick_at) / (stick_reach * 0.8)
+	stick = Vector2(push.x, -push.y).limit_length(1.0)
 
 
 func _hit(at: Vector2) -> String:
@@ -235,6 +266,7 @@ func _held(id: String) -> bool:
 
 func _process(delta: float) -> void:
 	toast_left = maxf(0.0, toast_left - delta)
+	stick_now = stick_now.lerp(stick if stick_finger >= 0 else stick_keys, 1.0 - exp(-20.0 * delta))
 	for note: Array in by_hand:
 		note[1] += delta
 	for i in lane_glow.size():
@@ -271,6 +303,7 @@ func _draw() -> void:
 		var on: bool = band.mods[id]
 		var face := _plate(buttons[id].rect, BRASS if on else CREAM, 20.0, on)
 		_draw_bender(id, face.get_center(), INK)
+	_draw_stick()
 	for b in 5:
 		_draw_pad(b)
 	if toast_left > 0.0:
@@ -284,6 +317,8 @@ func _draw() -> void:
 		_draw_menu()
 	if help_open:
 		_draw_help()
+	if book_open:
+		_draw_book()
 
 
 # ---- the sheet of music ----
@@ -486,6 +521,36 @@ func _draw_pad(b: int) -> void:
 		_text(c + Vector2(0, 3), label, int(rad * (1.0 if label.length() == 1 else 0.78)), ink)
 
 
+# The stick, in its well: a grey ridged cap on a stalk, like the one it is copied from
+func _draw_stick() -> void:
+	var c := stick_at
+	draw_circle(c + Vector2(0, 5), stick_reach + 4.0, Color(0, 0, 0, 0.4))
+	draw_circle(c, stick_reach + 4.0, WOOD_D)
+	draw_arc(c, stick_reach + 1.0, 0.0, TAU, 48, BRASS, 3.0, true)
+	draw_circle(c, stick_reach - 4.0, Color("1c1420"))
+	# (what each way does)
+	var faint := Color(CREAM, 0.55)
+	for x: float in [-4.0, 4.0]:
+		draw_line(c + Vector2(x, -stick_reach + 9.0), c + Vector2(x, -stick_reach + 23.0), faint, 2.0, true)
+	for y: float in [13.0, 19.0]:
+		draw_line(c + Vector2(-8, -stick_reach + y + 1.5), c + Vector2(8, -stick_reach + y - 1.5), faint, 2.5, true)
+	draw_line(c + Vector2(-4, stick_reach - 25.0), c + Vector2(-4, stick_reach - 9.0), faint, 2.0, true)
+	draw_arc(c + Vector2(-1, stick_reach - 13.0), 4.5, -PI / 2.0, PI / 2.0, 8, faint, 2.0, true)
+	for side: float in [-1.0, 1.0]:
+		var wave := PackedVector2Array()
+		for k in 9:
+			wave.append(c + Vector2(side * (stick_reach - 16.0) + (k - 4) * 2.2, sin(k * 1.6) * 3.5))
+		draw_polyline(wave, faint, 2.0, true)
+	var top := c + Vector2(stick_now.x, -stick_now.y) * stick_reach * 0.5
+	draw_line(c, top, Color("0c080e"), 22.0, true)
+	draw_circle(top + Vector2(0, 4), 37.0, Color(0, 0, 0, 0.45))
+	draw_circle(top, 37.0, Color("5e6068"))
+	draw_circle(top - Vector2(0, 2), 33.0, Color("a9acb6"))
+	for r: float in [24.0, 16.0, 8.0]:
+		draw_arc(top - Vector2(0, 2), r, 0.0, TAU, 28, Color("7d808a"), 2.0, true)
+	_oval(top + Vector2(-9, -15), Vector2(13, 6), Color(1, 1, 1, 0.28))
+
+
 func _draw_bender(id: String, c: Vector2, ink: Color) -> void:
 	match id:
 		"sharp":
@@ -498,11 +563,11 @@ func _draw_bender(id: String, c: Vector2, ink: Color) -> void:
 			draw_polyline([c + Vector2(-9, 2), c + Vector2(-1, -5), c + Vector2(7, -4), c + Vector2(10, 3),
 					c + Vector2(4, 11), c + Vector2(-9, 18)], ink, 4.0, true)
 		"up":
-			_arrow(c + Vector2(0, -10), Vector2.UP, 17.0, ink)
-			_text(c + Vector2(0, 22), "octave", 16, Color(ink, 0.85))
+			_arrow(c + Vector2(-27, -2), Vector2.UP, 11.0, ink)
+			_text(c + Vector2(13, 0), "octave", 15, Color(ink, 0.85))
 		"down":
-			_arrow(c + Vector2(0, 12), Vector2.DOWN, 17.0, ink)
-			_text(c + Vector2(0, -22), "octave", 16, Color(ink, 0.85))
+			_arrow(c + Vector2(-27, 1), Vector2.DOWN, 11.0, ink)
+			_text(c + Vector2(13, 0), "octave", 15, Color(ink, 0.85))
 
 
 # A little picture of instrument `i`, about 54 across at scale 1, in `col` with its own shade and shine
@@ -646,6 +711,7 @@ func _draw_menu() -> void:
 		"export": "Save as MIDI file",
 		"midi": "MIDI keyboard: " + ("on" if band.midi_open else "off"),
 		"sound": "Sound: " + ("on" if band.synth.sound else "off"),
+		"songbook": "Song book",
 		"help": "How to play",
 		"close": "Back",
 	}
@@ -658,12 +724,13 @@ func _draw_menu() -> void:
 func _draw_help() -> void:
 	var w := minf(size_now.x - 40.0, 660.0)
 	var lines := [
-		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. The cream keys bend whatever you play while you hold them: flat, sharp, an octave down, an octave up.",
+		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. Hold one for as long as you want the note. The stick bends what is sounding: up and down for pitch, sideways for a wobble. The two keys under it drop or raise an octave while you hold them.",
 		"Along the bottom is everything he carries. Tap one and he plays that.",
 		"Press the red lamp, wait for four ticks, and play. It comes round again, and again. Change instrument and play over it. The arrow takes back the last thing you added, the dustbin empties this instrument's track, and A B C D are four loops to move between.",
-		"Keys: A S D F G for notes, arrows to bend, 1 to 0 for instruments, Space to play, R to record, Z to take back.",
+		"Some tunes do things. They are in the song book, in the menu.",
+		"Keys: A S D F G for notes, arrows for the stick, Q and E for octaves, 1 to 0 for instruments, Space to play, R to record, Z to take back.",
 	]
-	var h := 84.0 + 40.0 + Kit.TUNES.size() * 42.0 + 50.0
+	var h := 84.0 + 50.0
 	for line: String in lines:
 		h += font.get_multiline_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, w - 56.0, 18).y + 12.0
 	var r := Rect2((size_now.x - w) / 2.0, maxf(10.0, (size_now.y - h) / 2.0), w, h)
@@ -672,14 +739,26 @@ func _draw_help() -> void:
 	for line: String in lines:
 		draw_multiline_string(font, Vector2(r.position.x + 28.0, y), line, HORIZONTAL_ALIGNMENT_LEFT, w - 56.0, 18, -1, INK)
 		y += font.get_multiline_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, w - 56.0, 18).y + 12.0
-	_text_left(Vector2(r.position.x + 28.0, y + 4.0), "The tune book (any instrument but the drums)", 18, RED.darkened(0.25), title_font)
-	y += 40.0
+	_text(Vector2(size_now.x / 2.0, r.end.y - 22.0), "Tap anywhere", 16, Color(INK, 0.55))
+
+
+# The tunes that do something, each as the buttons to press and what comes of it
+func _draw_book() -> void:
+	var w := minf(size_now.x - 40.0, 660.0)
+	var row := 58.0
+	var h := 84.0 + 34.0 + Kit.TUNES.size() * row + 40.0
+	var r := Rect2((size_now.x - w) / 2.0, maxf(10.0, (size_now.y - h) / 2.0), w, h)
+	_sheet(r, "Song Book")
+	var y := r.position.y + 84.0
+	_text(Vector2(size_now.x / 2.0, y), "Play one on any instrument but the drums", 17, Color(INK, 0.7))
+	y += 44.0
 	for tune in Kit.TUNES:
-		_text_left(Vector2(r.position.x + 28.0, y), tune.name, 18, INK)
+		_text_left(Vector2(r.position.x + 28.0, y - 9.0), tune.name, 19, INK, title_font)
+		_text_left(Vector2(r.position.x + 28.0, y + 14.0), tune.hint, 15, Color(INK, 0.65))
 		var pads: Array = tune.pads
 		for k in pads.size():
-			_dot(Vector2(r.position.x + 190.0 + k * 34.0, y), 13.0, pads[k], 1.0, Kit.note_name(band.key + Kit.TUNINGS[band.tuning].steps[pads[k]]))
-		y += 42.0
+			_dot(Vector2(r.end.x - 28.0 - (pads.size() - 1 - k) * 36.0 - 14.0, y), 14.0, pads[k], 1.0, Kit.note_name(band.key + Kit.TUNINGS[band.tuning].steps[pads[k]]))
+		y += row
 	_text(Vector2(size_now.x / 2.0, r.end.y - 22.0), "Tap anywhere", 16, Color(INK, 0.55))
 
 

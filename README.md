@@ -8,7 +8,8 @@ thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a pho
 
 - **Notes**: five round buttons with their note names on them, lowest on the left. Slide a finger
   from one to the next. Keys `A S D F G`.
-- **Benders** (hold): flat, sharp, octave down, octave up. Arrow keys.
+- **The stick**: up and down bends what is sounding by up to a whole tone, sideways makes it wobble. Arrow keys.
+  Under it, two keys drop or raise an octave while held (`Q`, `E`).
 - **Instruments**: piccolo, trumpet, viola, accordion, guitar, keytar, theremin, tuba, bells, drums. Keys `1` to `0`. On the drums the five
   buttons are kick, snare, hat, tom and crash.
 - **Loop station**: record (`R`; counts a bar in from a standstill), play/stop (`Space`), undo (`Z`), clear this

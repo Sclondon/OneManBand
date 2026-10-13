@@ -52,6 +52,11 @@ const TUNES: Array[Dictionary] = [
 	{"name": "Sun Tune", "pads": [2, 1, 4, 2, 1, 4], "does": "sun", "hint": "turns day to night and back"},
 	{"name": "Storm Tune", "pads": [0, 1, 4, 0, 1, 4], "does": "storm", "hint": "calls the rain, or sends it off"},
 	{"name": "Firefly Tune", "pads": [1, 2, 3, 1, 2, 3], "does": "fireflies", "hint": "brings the fireflies out"},
+	{"name": "Dance Tune", "pads": [0, 2, 4, 0, 2, 4], "does": "dance", "hint": "gets the little folk dancing"},
+	{"name": "Tag Tune", "pads": [4, 3, 4, 3, 2, 0], "does": "tag", "hint": "starts a game of tag"},
+	{"name": "Balloon Tune", "pads": [0, 1, 2, 3, 4, 4], "does": "balloons", "hint": "lets the balloons go"},
+	{"name": "Snow Tune", "pads": [4, 2, 1, 4, 2, 1], "does": "snow", "hint": "brings the snow, or stops it"},
+	{"name": "Carnival Tune", "pads": [3, 3, 1, 1, 4, 0], "does": "carnival", "hint": "lights the lamps every colour"},
 ]
 
 

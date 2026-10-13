@@ -36,7 +36,7 @@ func _run() -> void:
 	var looper := main.looper
 	_check(looper.has_notes(0, Kit.TUBA) and looper.has_notes(0, Kit.DRUMS), "a first visit gets the house band")
 	_check(not looper.has_notes(0, Kit.PICCOLO), "with the piccolo left for the player")
-	for id: String in ["n0", "n4", "flat", "up", "i6", "rec", "play", "s3", "menu"]:
+	for id: String in ["n0", "n4", "down", "up", "i6", "rec", "play", "s3", "menu"]:
 		var r: Rect2 = main.hud.buttons[id].rect
 		_check(Rect2(Vector2.ZERO, main.hud.size_now).encloses(r), "%s is on the screen" % id)
 
@@ -56,11 +56,35 @@ func _run() -> void:
 	_check(main.held.has(0), "a key plays its button")
 	await _key(KEY_A, false)
 	_check(main.pad_note(0) == 74 and main.pad_note(4) == 86, "the piccolo is tuned D to D")
-	await _touch("sharp", true)
 	await _touch("up", true, 1)
-	_check(main.pad_note(0) == 74 + 13, "sharp and the octave bend what is played")
-	await _touch("sharp", false)
+	_check(main.pad_note(0) == 74 + 12, "the octave key lifts what is played")
 	await _touch("up", false, 1)
+	# The stick: a finger on it, pushed to the top, bends a held note up a whole tone
+	var hub: Vector2 = main.hud.stick_at * main.hud.fit
+	var e := InputEventScreenTouch.new()
+	e.index = 3
+	e.pressed = true
+	e.position = root.get_final_transform() * hub
+	Input.parse_input_event(e)
+	var push := InputEventScreenDrag.new()
+	push.index = 3
+	push.position = root.get_final_transform() * (hub - Vector2(0, main.hud.stick_reach * main.hud.fit))
+	Input.parse_input_event(push)
+	await _touch("n0", true)
+	await _frames(30)
+	_check(main.bend > 1.9, "the stick pushed up bends a whole tone (%.2f)" % main.bend)
+	var sounding: AudioStreamPlayer = null
+	for v in main.synth.voices:
+		if v.id == main.held[0][0]:
+			sounding = v.player
+	_check(sounding != null and sounding.playing and is_equal_approx(sounding.pitch_scale, pow(2.0, 4.0 / 12.0)), "and the note that is sounding goes up with it, still held")
+	await _touch("n0", false)
+	e = InputEventScreenTouch.new()
+	e.index = 3
+	e.pressed = false
+	Input.parse_input_event(e)
+	await _frames(20)
+	_check(absf(main.bend) < 0.05, "and let go, it springs back")
 
 	# A new song: record the trumpet after the count-in
 	main.press("new")
