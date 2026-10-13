@@ -37,6 +37,8 @@ func _initialize() -> void:
 		_held("viola_%d" % m, m, _viola, {"attack": 0.11, "vib": 0.005, "rate": 5, "breath": 0.025})
 	for m: int in [48, 60, 72]:
 		_held("choir_%d" % m, m, _choir, {"attack": 0.14, "vib": 0.006, "rate": 5, "breath": 0.03, "voices": [[1, 0, 1.0], [1, 4, 0.8], [1, -3, 0.8], [1, 7, 0.55], [2, 2, 0.22]]})
+	for m: int in [36, 48, 60]:
+		_held("bassoon_%d" % m, m, _bassoon, {"attack": 0.05, "scoop": -0.3, "vib": 0.003, "rate": 5, "breath": 0.012})
 	for m: int in [48, 60, 72]:
 		_plucked("guitar_%d" % m, m)
 	for m: int in [72, 84, 96]:
@@ -88,6 +90,13 @@ func _organ(h: int, hz: float) -> float:
 func _organ_chiff(h: int, hz: float) -> float:
 	var at := h * hz
 	return _organ(h, hz) * 0.6 + 0.5 * exp(-pow((at - 3200.0) / 1200.0, 2.0)) / sqrt(h)
+
+
+# A double reed down a long wooden tube: dry and woody, with humps round 480 and 1150 Hz
+func _bassoon(h: int, hz: float) -> float:
+	var at := h * hz
+	var tube := 0.45 + 1.7 * exp(-pow((at - 480.0) / 200.0, 2.0)) + 0.8 * exp(-pow((at - 1150.0) / 300.0, 2.0))
+	return pow(h, -0.7) * tube / (1.0 + pow(at / 3000.0, 3.0))
 
 
 # Small voices singing "ah": the humps an open mouth gives a voice

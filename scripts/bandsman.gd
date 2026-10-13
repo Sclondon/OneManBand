@@ -25,6 +25,7 @@ const REACH := [
 	[Vector3(0.31, 0.2, 0.38), Vector3(-0.3, 0.2, 0.38)],
 	[Vector3(0.37, 0.5, 0.4), Vector3(-0.12, 0.5, 0.3)],
 	[Vector3(0.32, 0.4, 0.3), Vector3(-0.3, 0.44, 0.34)],
+	[Vector3(0.28, 0.34, 0.2), Vector3(0.15, 0.03, 0.22)],
 ]
 
 var stage: Stage
@@ -96,6 +97,9 @@ func _ready() -> void:
 	_carry(Kit.VIOLA, p.viola, Transform3D(Basis(Vector3.UP, -0.9) * Basis(Vector3.RIGHT, -PI / 2.0), Vector3(0.13, 0.5, 0.1)), null)
 	_give(p.bow, p.hand_R)
 	p.bow.position = Vector3(0.0, -0.05, 0.0)
+	# (the bassoon stands across him, its foot by his right hip and its bell up past his left
+	# ear, with the crook coming round from it to his mouth)
+	_carry(Kit.BASSOON, p.bassoon, Transform3D(Basis(Vector3.BACK, -0.3), Vector3(0.22, 0.15, 0.24)), null)
 	# (the baton he conducts the choir with)
 	_give(p.baton, p.hand_R)
 	p.baton.transform = Transform3D(Basis(Vector3.RIGHT, PI / 2.0 - 1.0), Vector3(0.0, -0.05, 0.0))
@@ -304,7 +308,7 @@ func _hand_goal(h: int) -> Vector3:
 
 
 func _blown() -> bool:
-	return inst == Kit.PICCOLO or inst == Kit.TRUMPET or inst == Kit.TUBA
+	return inst == Kit.PICCOLO or inst == Kit.TRUMPET or inst == Kit.TUBA or inst == Kit.BASSOON
 
 
 # The part of him that instrument `which` sounds from
@@ -330,6 +334,8 @@ func _piece(which: int, b: int) -> Node3D:
 			return p.viola
 		Kit.CHOIR:
 			return p.baton
+		Kit.BASSOON:
+			return p.bassoon
 	return [p.pack_drum, p.snare, p.cym_top, p.pack_tom, p.cym_crash][posmod(b, 5)]
 
 

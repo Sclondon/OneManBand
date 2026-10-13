@@ -506,6 +506,20 @@ def build_bandsman():
     st.cyl((0, 0.06, 0), (0, -0.36, 0), 0.016, 0.012, CREAM, seg=5)
     st.ball((0, -0.39, 0), 0.045, RED, RED_D, seg=6, rings=4)
 
+    # A bassoon: a long maroon tube doubled back on itself in the boot at its foot, a bell at the
+    # top, and the thin silver crook that comes round from it to his mouth. (up is +z, his side +y)
+    bn = Part("bassoon")
+    bn.cyl((0, 0, -0.5), (0, 0, 0.5), 0.05, 0.036, "#8a3324", "#5a1c14", seg=7)
+    bn.cyl((0, 0, -0.56), (0, 0, -0.36), 0.066, 0.06, "#6a2418", "#421109", seg=7)
+    bn.cyl((0, 0, -0.58), (0, 0, -0.56), 0.07, 0.07, "#c9ccd4", seg=7)
+    bn.cyl((0.055, 0, -0.38), (0.045, 0, 0.3), 0.03, 0.022, "#8a3324", "#5a1c14", seg=6)
+    bn.horn((0, 0, 0.5), (0, 0, 0.74), 0.038, 0.075, "#8a3324", "#5a1c14", seg=8)
+    bn.cyl((0, 0, 0.49), (0, 0, 0.52), 0.045, 0.045, CREAM, seg=7)
+    bn.pipe([(0.045, 0, 0.3), (-0.05, 0.02, 0.41), (-0.17, 0.06, 0.4), (-0.25, 0.09, 0.315)], 0.008, "#c9ccd4", seg=4)
+    bn.cyl((-0.25, 0.09, 0.315), (-0.275, 0.1, 0.29), 0.012, 0.004, CREAM, seg=4)
+    for i in range(6):
+        bn.ball((0.0, -0.045, -0.24 + i * 0.11), 0.017, "#c9ccd4", seg=5, rings=3)
+
     # The baton he conducts the choir with: a white stick with a cork to hold it by
     bt = Part("baton")
     bt.cyl((0, 0.04, 0), (0, -0.36, 0), 0.011, 0.004, WHITE, seg=5)

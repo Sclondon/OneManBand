@@ -11,8 +11,8 @@ thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a pho
 - **The stick**: up and down bends what is sounding by up to a whole tone, sideways makes it wobble. Arrow keys.
   Under it are four keys that stay on until tapped again: flat and sharp move the five buttons a half step
   (`C`, `V`), so every note can be had, and two drop or raise an octave (`Q`, `E`).
-- **Instruments**: piccolo, trumpet, viola, accordion, guitar, organ, theremin, tuba, bells, drums, and the choir (the
-  satyrs and imps line up and sing, and he conducts). Keys `1` to `0` and `-`. On the drums the five buttons are kick,
+- **Instruments**: piccolo, trumpet, viola, accordion, guitar, organ, theremin, tuba, bells, drums, the choir (the
+  satyrs and imps line up and sing, and he conducts) and a bassoon. Keys `1` to `0`, `-` and `=`. On the drums the five buttons are kick,
   snare, hat, tom and crash; the low octave key changes them to the big drums (boom, rim, open hat, floor tom, ride) and
   the high one to the toys (clap, block, shake, bell, splash).
 - **Loop station**: record (`R`; counts a bar in from a standstill), play/stop (`Space`), undo (`Z`), clear this

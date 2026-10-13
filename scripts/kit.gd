@@ -10,6 +10,7 @@ const BELLS := 5
 const DRUMS := 6
 const ORGAN := 7
 const CHOIR := 10
+const BASSOON := 11
 const THEREMIN := 8
 const VIOLA := 9
 
@@ -30,10 +31,11 @@ const INSTRUMENTS: Array[Dictionary] = [
 	{"id": "viola", "name": "Viola", "base": 48, "bases": [48, 60, 72], "held": true, "release": 0.16, "gm": 41, "db": -6.0, "color": Color("8fb4ff")},
 	# (the little folk on the green, singing: he conducts)
 	{"id": "choir", "name": "Choir", "base": 60, "bases": [48, 60, 72], "held": true, "release": 0.28, "gm": 52, "db": -6.0, "color": Color("a8e6c9")},
+	{"id": "bassoon", "name": "Bassoon", "base": 48, "bases": [36, 48, 60], "held": true, "release": 0.09, "gm": 70, "db": -5.0, "color": Color("c9643e")},
 ]
 
 # The order they are laid out in for picking, and that the number keys go in
-const SHELF: Array[int] = [PICCOLO, TRUMPET, VIOLA, ACCORDION, GUITAR, ORGAN, THEREMIN, TUBA, BELLS, DRUMS, CHOIR]
+const SHELF: Array[int] = [PICCOLO, TRUMPET, VIOLA, ACCORDION, GUITAR, ORGAN, THEREMIN, TUBA, BELLS, DRUMS, CHOIR, BASSOON]
 
 # Three kits of five drums: the trap set, the big low ones (with the low octave key on) and the
 # toys (with the high one). A drum's note says which kit it is from and how far it is bent:

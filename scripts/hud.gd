@@ -710,6 +710,16 @@ func _draw_instrument(i: int, c: Vector2, k: float, col: Color) -> void:
 			_box(Rect2(c + Vector2(-22, 9) * k, Vector2(44, 7) * k), CREAM, 1.5 * k)
 			for j in 7:
 				draw_line(c + Vector2(-17.0 + j * 5.6, 9) * k, c + Vector2(-17.0 + j * 5.6, 13) * k, hole, 2.0 * k)
+		Kit.BASSOON:
+			# A long tube stood on a slant, a bell at its top, the crook curling off it and keys down it
+			draw_line(c + Vector2(-13, 22) * k, c + Vector2(13, -20) * k, dark, 9.0 * k, true)
+			draw_line(c + Vector2(-13, 22) * k, c + Vector2(13, -20) * k, col, 6.0 * k, true)
+			draw_line(c + Vector2(-16, 14) * k, c + Vector2(-4, -6) * k, col.darkened(0.2), 5.0 * k, true)
+			draw_circle(c + Vector2(14, -22) * k, 5.2 * k, dark)
+			draw_circle(c + Vector2(14, -22) * k, 3.6 * k, pale)
+			draw_arc(c + Vector2(-12, -9) * k, 9.0 * k, -PI * 0.1, -PI * 1.05, 10, pale, 2.2 * k, true)
+			for t: float in [0.3, 0.45, 0.6, 0.75]:
+				draw_circle(c + Vector2(-13, 22).lerp(Vector2(13, -20), t) * k, 1.8 * k, pale)
 		Kit.CHOIR:
 			# Three of the little folk with their mouths open: a satyr's horns, and an imp's straw hat
 			for j in 3:
@@ -803,7 +813,7 @@ func _draw_help() -> void:
 		"Along the bottom is everything he carries. Tap one and he plays that. The last is the choir: the little folk line up and sing, and he conducts. On the drums the two octave keys change the kit, to the big low drums or the toys.",
 		"Press the red lamp, wait for four ticks, and play. It comes round again, and again. Change instrument and play over it. The arrow takes back the last thing you added, the dustbin empties this instrument's track, and A B C D are four loops to move between.",
 		"Some tunes do things. They are in the song book, in the menu.",
-		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves, 1 to 0 and - for instruments, Space to play, R to record, Z to take back.",
+		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves, 1 to 0, - and = for instruments, Space to play, R to record, Z to take back.",
 	]
 	var h := 84.0 + 50.0
 	for line: String in lines:
