@@ -1,0 +1,506 @@
+# Builds the bandsman, his instruments and the bandstand as low-poly, vertex-coloured models
+# (no textures, a few hundred faces each, limbs as separate rigid pieces the way an N64 character
+# was), and writes them out as .glb for the game and .blend to look at.
+#
+#   blender --background --python art/make_models.py -- <project folder>
+#
+# Everything is laid out standing at rest in Blender's own space: Z up, the man facing -Y, his
+# left hand at +X. Each Part is an object whose origin is the joint it turns about.
+
+import math
+import os
+import random
+import sys
+
+import bmesh
+import bpy
+from mathutils import Euler, Matrix, Vector
+
+ROOT = sys.argv[sys.argv.index("--") + 1]
+
+PURPLE = "#7446ad"
+PURPLE_D = "#43266b"
+PURPLE_L = "#9263c9"
+GOLD = "#f0c23a"
+GOLD_D = "#b98614"
+SKIN = "#f3d5b0"
+SKIN_D = "#d8a47a"
+HAIR = "#e86a1c"
+HAIR_D = "#b0440e"
+WHITE = "#f4f0e2"
+RED = "#cf3a30"
+RED_D = "#8a1d1c"
+BROWN = "#80502a"
+BROWN_D = "#4d2d15"
+WOOD = "#b98344"
+WOOD_L = "#d7a865"
+CREAM = "#f0e4bf"
+BRASS = "#f0c046"
+BRASS_D = "#a8741a"
+TEAL = "#33b3a6"
+TEAL_D = "#1d7a78"
+BLUE = "#3565c4"
+BLUE_D = "#1f3d80"
+DARK = "#231a2b"
+GREEN = "#5fa53a"
+GREEN_L = "#86c24c"
+GREEN_D = "#356f2a"
+GREEN_DD = "#234f26"
+DIRT = "#b89b63"
+STONE = "#b8a583"
+STONE_D = "#84745c"
+LAMP = "#ffe07a"
+
+PARTS = []
+
+
+def lin(c):
+    c = c.lstrip("#")
+    out = []
+    for i in (0, 2, 4):
+        v = int(c[i:i + 2], 16) / 255.0
+        out.append(v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4)
+    return (out[0], out[1], out[2], 1.0)
+
+
+def mix(a, b, t):
+    return tuple(a[i] + (b[i] - a[i]) * t for i in range(4))
+
+
+class Part:
+    def __init__(self, name, parent=None, pivot=(0, 0, 0)):
+        self.name = name
+        self.parent = parent
+        self.pivot = Vector(pivot)
+        self.bm = bmesh.new()
+        self.col = self.bm.loops.layers.float_color.new("Col")
+        self.uv = None
+        self.obj = None
+        PARTS.append(self)
+
+    # Colours the new faces from c1 at p1 to c2 at p2; faces square to `axis` stay flat
+    def _finish(self, verts, c1, c2, p1, p2, axis=None, flat=False):
+        faces = set()
+        for v in verts:
+            faces.update(v.link_faces)
+        bmesh.ops.recalc_face_normals(self.bm, faces=list(faces))
+        self.bm.normal_update()
+        a = Vector(p1)
+        d = Vector(p2) - a
+        dd = d.length_squared or 1.0
+        c1 = lin(c1)
+        c2 = lin(c2) if c2 else c1
+        for f in faces:
+            f.smooth = not flat and (axis is None or abs(f.normal.dot(axis)) < 0.9)
+            for l in f.loops:
+                t = max(0.0, min(1.0, (l.vert.co - a).dot(d) / dd))
+                l[self.col] = mix(c1, c2, t)
+
+    # A tube or cone from p1 (radius r1) to p2 (radius r2); `flat` squashes it front to back
+    def cyl(self, p1, p2, r1, r2, c1, c2=None, seg=6, flat=1.0):
+        p1 = Vector(p1)
+        p2 = Vector(p2)
+        d = p2 - p1
+        rot = Vector((0, 0, 1)).rotation_difference(d.normalized()).to_matrix().to_4x4()
+        m = Matrix.Translation((p1 + p2) / 2) @ rot @ Matrix.Diagonal((1, flat, 1, 1))
+        res = bmesh.ops.create_cone(self.bm, cap_ends=True, cap_tris=False, segments=seg,
+                                    radius1=r1, radius2=r2, depth=d.length, matrix=m)
+        self._finish(res["verts"], c1, c2, p1, p2, d.normalized())
+        return self
+
+    # A line of tubes through the points
+    def pipe(self, points, r, c1, c2=None, seg=5):
+        for i in range(len(points) - 1):
+            self.cyl(points[i], points[i + 1], r, r, c1, c2, seg)
+            self.ball(points[i + 1], r, c2 or c1, seg=seg, rings=3)
+        return self
+
+    # `c1` on top, `c2` (if any) underneath
+    def ball(self, c, r, c1, c2=None, seg=8, rings=5):
+        c = Vector(c)
+        if not isinstance(r, tuple):
+            r = (r, r, r)
+        m = Matrix.Translation(c) @ Matrix.Diagonal((r[0], r[1], r[2], 1))
+        res = bmesh.ops.create_uvsphere(self.bm, u_segments=seg, v_segments=rings, radius=1.0, matrix=m)
+        self._finish(res["verts"], c2 or c1, c1, c - Vector((0, 0, r[2])), c + Vector((0, 0, r[2])))
+        return res["verts"]
+
+    def box(self, c, size, c1, c2=None, rot=None):
+        c = Vector(c)
+        m = Matrix.Translation(c)
+        if rot:
+            m = m @ Euler(rot).to_matrix().to_4x4()
+        m = m @ Matrix.Diagonal((size[0], size[1], size[2], 1))
+        res = bmesh.ops.create_cube(self.bm, size=1.0, matrix=m)
+        h = Vector((0, 0, size[2] / 2))
+        self._finish(res["verts"], c2 or c1, c1, c - h, c + h, flat=True)
+        return self
+
+    def make(self, scene):
+        bmesh.ops.translate(self.bm, verts=self.bm.verts, vec=-self.pivot)
+        mesh = bpy.data.meshes.new(self.name)
+        self.bm.to_mesh(mesh)
+        self.bm.free()
+        mesh.color_attributes.active_color = mesh.color_attributes["Col"]
+        mesh.color_attributes.render_color_index = 0
+        self.obj = bpy.data.objects.new(self.name, mesh)
+        scene.collection.objects.link(self.obj)
+        if self.parent:
+            self.obj.parent = self.parent.obj
+            self.obj.location = self.pivot - self.parent.pivot
+        else:
+            self.obj.location = self.pivot
+
+
+def write(name):
+    scene = bpy.context.scene
+    for p in PARTS:
+        p.make(scene)
+    PARTS.clear()
+    os.makedirs(os.path.join(ROOT, "models"), exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT, "art", name + ".blend"))
+    want = dict(filepath=os.path.join(ROOT, "models", name + ".glb"), export_format="GLB",
+                export_yup=True, export_animations=False, export_vertex_color="ACTIVE",
+                export_all_vertex_colors=False, export_active_vertex_color_when_no_material=True)
+    known = bpy.ops.export_scene.gltf.get_rna_type().properties.keys()
+    bpy.ops.export_scene.gltf(**{k: v for k, v in want.items() if k in known})
+    print("wrote", name, "faces:", sum(len(o.data.polygons) for o in scene.objects if o.type == "MESH"))
+
+
+def fresh():
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+
+
+# A drum standing on the axis p1..p2: shell, two hoops and two skins
+def drum(part, p1, p2, r, shell, seg=10):
+    p1 = Vector(p1)
+    p2 = Vector(p2)
+    d = (p2 - p1).normalized()
+    hoop = 0.035 * (r / 0.3) + 0.012
+    part.cyl(p1, p2, r, r, shell, seg=seg)
+    part.cyl(p1 - d * 0.004, p1 + d * hoop, r * 1.045, r * 1.045, GOLD, seg=seg)
+    part.cyl(p2 - d * hoop, p2 + d * 0.004, r * 1.045, r * 1.045, GOLD, seg=seg)
+    part.cyl(p1 - d * 0.009, p1, r * 0.94, r * 0.94, CREAM, seg=seg)
+    part.cyl(p2, p2 + d * 0.009, r * 0.94, r * 0.94, CREAM, seg=seg)
+
+
+def build_bandsman():
+    fresh()
+
+    hips = Part("hips", None, (0, 0, 0.95))
+    hips.ball((0, 0, 0.93), (0.17, 0.12, 0.11), PURPLE_D)
+    hips.cyl((0, 0, 0.6), (0, 0, 1.0), 0.29, 0.19, PURPLE_D, PURPLE, seg=8, flat=0.75)
+    hips.cyl((0, 0, 0.58), (0, 0, 0.615), 0.297, 0.292, GOLD, seg=8, flat=0.75)
+
+    torso = Part("torso", hips, (0, 0, 1.0))
+    torso.cyl((0, 0, 0.98), (0, 0, 1.42), 0.185, 0.215, PURPLE, PURPLE_L, seg=8, flat=0.68)
+    torso.ball((0, 0, 1.42), (0.215, 0.146, 0.07), PURPLE_L)
+    torso.cyl((0, 0, 0.985), (0, 0, 1.04), 0.198, 0.2, GOLD, seg=8, flat=0.7)
+    for z in (1.13, 1.23, 1.33):
+        torso.ball((0, -0.135 - (z - 1.13) * 0.045, z), 0.02, GOLD, GOLD_D, seg=5, rings=3)
+    torso.cyl((0, 0, 1.44), (0, 0, 1.54), 0.09, 0.065, WHITE, seg=6)
+    torso.cyl((0, -0.105, 1.47), (0.1, -0.11, 1.47), 0.012, 0.05, RED, RED_D, seg=4)
+    torso.cyl((0, -0.105, 1.47), (-0.1, -0.11, 1.47), 0.012, 0.05, RED, RED_D, seg=4)
+    torso.ball((0, -0.11, 1.47), 0.022, RED_D, seg=5, rings=3)
+
+    head = Part("head", torso, (0, 0, 1.5))
+    head.ball((0, 0.035, 1.735), (0.16, 0.165, 0.15), HAIR, HAIR_D)
+    head.cyl((-0.07, -0.09, 1.83), (0.11, -0.13, 1.875), 0.055, 0.012, HAIR, HAIR_D)
+    head.cyl((0.03, -0.05, 1.86), (0.15, -0.04, 1.84), 0.05, 0.01, HAIR, HAIR_D)
+    for s in (1, -1):
+        head.cyl((0.14 * s, -0.04, 1.73), (0.132 * s, -0.065, 1.6), 0.03, 0.006, HAIR_D)
+        head.ball((0.142 * s, 0.0, 1.67), (0.02, 0.035, 0.05), SKIN_D, seg=5, rings=3)
+    head.cyl((0, 0.15, 1.66), (0, 0.25, 1.58), 0.07, 0.008, HAIR_D)
+    head.cyl((0, -0.13, 1.665), (0, -0.225, 1.64), 0.03, 0.006, "#e8b88e", seg=5)
+    # A little fez, worn at an angle
+    head.cyl((-0.05, 0.0, 1.855), (-0.075, 0.01, 1.975), 0.078, 0.056, RED, RED_D)
+    head.cyl((-0.048, 0.0, 1.85), (-0.053, 0.002, 1.875), 0.083, 0.08, GOLD)
+    head.cyl((-0.075, 0.01, 1.975), (-0.16, 0.0, 1.9), 0.006, 0.006, GOLD, seg=4)
+    head.ball((-0.16, 0.0, 1.89), 0.02, GOLD, GOLD_D, seg=5, rings=3)
+
+    # The skin of the head is its own piece, so the game can lay a painted face over it
+    face = Part("face", head, (0, 0, 1.5))
+    centre = Vector((0, 0, 1.67))
+    size = Vector((0.145, 0.15, 0.185))
+    verts = face.ball(centre, tuple(size), SKIN, "#ebc8a0", seg=10, rings=7)
+    for v in verts:
+        low = max(0.0, (centre.z - v.co.z) / size.z)
+        k = 1.0 - 0.38 * low ** 1.3
+        v.co.x = centre.x + (v.co.x - centre.x) * k
+        v.co.y = centre.y + (v.co.y - centre.y) * k - 0.02 * low
+    face.uv = face.bm.loops.layers.uv.new("UVMap")
+    for f in face.bm.faces:
+        front = all(v.co.y < centre.y - 0.03 for v in f.verts)
+        for l in f.loops:
+            if front:
+                l[face.uv].uv = ((l.vert.co.x - centre.x) / (2 * size.x) + 0.5,
+                                 (l.vert.co.z - (centre.z - size.z)) / (2 * size.z))
+            else:
+                l[face.uv].uv = (0.008, 0.992)
+
+    for s, side in ((1, "L"), (-1, "R")):
+        x = 0.26 * s
+        up = Part("upper_" + side, torso, (x, 0, 1.42))
+        up.ball((x, 0, 1.42), 0.068, PURPLE_L, seg=6, rings=4)
+        up.cyl((x, 0, 1.12), (x, 0, 1.42), 0.048, 0.06, PURPLE, PURPLE_L)
+        fo = Part("fore_" + side, up, (x, 0, 1.12))
+        fo.ball((x, 0, 1.12), 0.05, PURPLE, seg=6, rings=4)
+        fo.cyl((x, 0, 0.88), (x, 0, 1.12), 0.04, 0.048, PURPLE)
+        fo.cyl((x, 0, 0.855), (x, 0, 0.9), 0.052, 0.05, GOLD)
+        ha = Part("hand_" + side, fo, (x, 0, 0.86))
+        ha.ball((x, 0, 0.81), (0.04, 0.032, 0.055), SKIN, SKIN_D, seg=6, rings=4)
+        ha.ball((x, -0.03, 0.83), 0.018, SKIN, seg=5, rings=3)
+
+        x = 0.1 * s
+        th = Part("thigh_" + side, hips, (x, 0, 0.92))
+        th.cyl((x, 0, 0.5), (x, 0, 0.92), 0.058, 0.075, PURPLE_D)
+        sh = Part("shin_" + side, th, (x, 0, 0.5))
+        sh.ball((x, 0, 0.5), 0.06, PURPLE_D, seg=6, rings=4)
+        sh.cyl((x, 0, 0.1), (x, 0, 0.5), 0.04, 0.056, PURPLE_D)
+        sh.cyl((x, 0, 0.1), (x, 0, 0.17), 0.046, 0.046, WHITE)
+        ft = Part("foot_" + side, sh, (x, 0, 0.1))
+        ft.ball((x, -0.06, 0.05), (0.064, 0.13, 0.05), BROWN, BROWN_D, seg=6, rings=4)
+        ft.cyl((x, -0.16, 0.05), (x, -0.25, 0.14), 0.036, 0.004, BROWN)
+
+    # The rig on his back: a frame, and everything that hangs off it
+    pack = Part("pack", torso, (0, 0.2, 1.2))
+    for s in (1, -1):
+        pack.cyl((0.2 * s, 0.17, 0.92), (0.2 * s, 0.17, 2.12), 0.018, 0.018, BROWN_D, BROWN, seg=5)
+        pack.pipe([(0.13 * s, -0.142, 1.2), (0.13 * s, -0.11, 1.44), (0.13 * s, 0.02, 1.5),
+                   (0.14 * s, 0.17, 1.42)], 0.02, BROWN, seg=4)
+    for z in (1.02, 2.08):
+        pack.cyl((-0.22, 0.17, z), (0.22, 0.17, z), 0.015, 0.015, BROWN, seg=5)
+    pack.cyl((-0.2, 0.17, 2.1), (-0.2, 0.17, 2.3), 0.01, 0.01, BROWN_D, seg=4)
+    pack.cyl((-0.2, 0.17, 2.235), (-0.2, 0.17, 2.26), 0.02, 0.16, BRASS_D, BRASS, seg=10)
+    pack.pipe([(-0.2, 0.17, 1.7), (-0.42, 0.19, 1.86), (-0.56, 0.2, 2.02)], 0.012, BROWN_D, seg=4)
+
+    big = Part("pack_drum", pack, (0, 0.37, 1.25))
+    drum(big, (0, 0.2, 1.25), (0, 0.54, 1.25), 0.37, RED, seg=12)
+    big.cyl((0, 0.549, 1.25), (0, 0.554, 1.25), 0.2, 0.2, GOLD, seg=5)
+    big.cyl((0, 0.554, 1.25), (0, 0.558, 1.25), 0.11, 0.11, RED_D, seg=5)
+
+    tom = Part("pack_tom", pack, (-0.37, 0.36, 1.6))
+    drum(tom, (-0.33, 0.36, 1.53), (-0.41, 0.36, 1.67), 0.125, BLUE, seg=8)
+
+    hat = Part("cym_top", pack, (-0.2, 0.17, 2.285))
+    hat.cyl((-0.2, 0.17, 2.27), (-0.2, 0.17, 2.3), 0.16, 0.02, BRASS, BRASS_D, seg=10)
+
+    crash = Part("cym_crash", pack, (-0.56, 0.2, 2.03))
+    crash.cyl((-0.555, 0.2, 2.03), (-0.575, 0.19, 2.065), 0.21, 0.025, BRASS, BRASS_D, seg=10)
+
+    chimes = Part("pack_bells", pack, (0, 0.17, 2.08))
+    for x in (-0.11, -0.035, 0.035, 0.11):
+        chimes.cyl((x, 0.17, 2.07), (x, 0.17, 2.03), 0.004, 0.004, BROWN_D, seg=4)
+        chimes.cyl((x, 0.17, 2.03), (x, 0.17, 1.965), 0.012, 0.04, GOLD, GOLD_D, seg=6)
+        chimes.ball((x, 0.17, 1.955), 0.014, GOLD_D, seg=5, rings=3)
+
+    tuba = Part("tuba", pack, (0.36, 0.2, 1.72))
+    tuba.pipe([(0.42, 0.3, 0.98), (0.47, 0.42, 1.2), (0.42, 0.3, 1.45), (0.36, 0.22, 1.2),
+               (0.3, 0.24, 1.0)], 0.035, BRASS_D, BRASS)
+    tuba.cyl((0.42, 0.3, 1.45), (0.36, 0.2, 1.74), 0.045, 0.065, BRASS_D, BRASS, seg=8)
+    tuba.cyl((0.36, 0.2, 1.74), (0.46, 0.05, 2.1), 0.065, 0.25, BRASS, GOLD, seg=10)
+    tuba.cyl((0.445, 0.072, 2.045), (0.461, 0.048, 2.104), 0.16, 0.215, BRASS_D, DARK, seg=10)
+
+    # The tuba's mouth pipe only comes round to the front while he is playing it
+    lead = Part("tuba_pipe", torso, (0, 0, 1.2))
+    lead.pipe([(0.3, 0.2, 1.12), (0.31, -0.06, 1.08), (0.14, -0.2, 1.3), (0.02, -0.2, 1.55)],
+              0.016, BRASS_D, BRASS, seg=4)
+    lead.cyl((0.02, -0.2, 1.55), (0.0, -0.17, 1.6), 0.012, 0.026, BRASS, seg=5)
+
+    # What he holds. Each is built about its own origin, where the game takes hold of it.
+    oc = Part("ocarina")
+    oc.ball((0, 0, 0), (0.115, 0.055, 0.048), TEAL, TEAL_D, seg=8, rings=5)
+    oc.cyl((0.02, 0.03, 0.005), (0.035, 0.105, 0.01), 0.03, 0.014, TEAL, TEAL_D, seg=5)
+    oc.cyl((0.02, 0.028, 0.004), (0.023, 0.045, 0.006), 0.034, 0.03, GOLD, seg=5)
+    for x in (-0.06, -0.025, 0.012, 0.05):
+        oc.ball((x, -0.03 + abs(x) * 0.15, 0.036), 0.011, DARK, seg=4, rings=3)
+
+    tr = Part("trumpet")
+    tr.cyl((0, 0.0, 0), (0, -0.045, 0), 0.02, 0.008, GOLD, seg=5)
+    tr.cyl((0, -0.04, 0), (0, -0.42, 0), 0.011, 0.013, BRASS, seg=5)
+    tr.cyl((0, -0.42, 0), (0, -0.57, 0), 0.014, 0.085, BRASS, GOLD, seg=8)
+    tr.cyl((0, -0.57, 0), (0, -0.595, 0), 0.085, 0.115, GOLD, seg=8)
+    tr.pipe([(0, -0.12, 0), (0, -0.12, -0.055), (0, -0.36, -0.055), (0, -0.36, 0)], 0.011, BRASS_D, seg=4)
+    for y in (-0.2, -0.24, -0.28):
+        tr.cyl((0, y, -0.07), (0, y, 0.055), 0.015, 0.015, BRASS_D, BRASS, seg=5)
+        tr.cyl((0, y, 0.055), (0, y, 0.07), 0.01, 0.017, CREAM, seg=5)
+
+    al = Part("acc_L")
+    al.box((0.05, 0, 0), (0.1, 0.17, 0.32), RED, RED_D)
+    al.box((0.104, -0.035, 0), (0.012, 0.075, 0.28), CREAM)
+    for i in range(6):
+        al.box((0.111, -0.05, -0.115 + i * 0.046), (0.006, 0.04, 0.018), DARK)
+    al.box((0.05, 0, 0.165), (0.105, 0.175, 0.014), GOLD)
+    al.box((0.05, 0, -0.165), (0.105, 0.175, 0.014), GOLD)
+    ar = Part("acc_R")
+    ar.box((-0.05, 0, 0), (0.1, 0.17, 0.32), RED, RED_D)
+    for i in range(4):
+        for j in range(2):
+            ar.ball((-0.103, -0.03 + j * 0.05, -0.09 + i * 0.06), 0.014, CREAM, seg=4, rings=3)
+    ar.box((-0.05, 0, 0.165), (0.105, 0.175, 0.014), GOLD)
+    ar.box((-0.05, 0, -0.165), (0.105, 0.175, 0.014), GOLD)
+    # One unit wide, for the game to stretch
+    ab = Part("acc_bellows")
+    for i in range(6):
+        x = (i + 0.5) / 6.0 - 0.5
+        ab.box((x, 0, 0), (1 / 6.0, 0.125, 0.27), DARK)
+        ab.box((x, 0, 0), (1 / 15.0, 0.158, 0.305), CREAM)
+
+    gt = Part("guitar")
+    gt.cyl((0, -0.035, 0), (0, 0.035, 0), 0.17, 0.17, WOOD, BROWN, seg=10)
+    gt.cyl((0.18, -0.035, 0), (0.18, 0.035, 0), 0.125, 0.125, WOOD, BROWN, seg=10)
+    gt.cyl((0, -0.041, 0), (0, -0.035, 0), 0.155, 0.155, WOOD_L, seg=10)
+    gt.cyl((0.18, -0.041, 0), (0.18, -0.035, 0), 0.112, 0.112, WOOD_L, seg=10)
+    gt.cyl((0.09, -0.046, 0), (0.09, -0.04, 0), 0.05, 0.05, DARK, seg=8)
+    gt.box((0.5, -0.03, 0), (0.44, 0.03, 0.045), BROWN_D)
+    gt.box((0.76, -0.03, 0), (0.11, 0.03, 0.075), BROWN)
+    gt.box((-0.08, -0.047, 0), (0.022, 0.012, 0.1), BROWN_D)
+    gt.box((0.34, -0.048, 0), (0.86, 0.004, 0.03), CREAM)
+
+    hb = Part("bell_hand")
+    hb.cyl((0, 0.04, 0), (0, -0.07, 0), 0.013, 0.013, BROWN, seg=5)
+    hb.cyl((0, -0.07, 0), (0, -0.17, 0), 0.02, 0.075, GOLD, GOLD_D, seg=7)
+    hb.ball((0, -0.175, 0), 0.02, GOLD_D, seg=5, rings=3)
+
+    st = Part("stick")
+    st.cyl((0, 0.05, 0), (0, -0.3, 0), 0.013, 0.008, CREAM, seg=5)
+    st.ball((0, -0.305, 0), 0.016, CREAM, seg=5, rings=3)
+
+    sn = Part("snare")
+    drum(sn, (0, 0, -0.055), (0, 0, 0.055), 0.165, BLUE, seg=10)
+
+    write("bandsman")
+
+
+def tree(part, x, y, s, pine, rnd):
+    part.cyl((x, y, 0), (x, y, 1.3 * s), 0.2 * s, 0.13 * s, BROWN_D, BROWN, seg=5)
+    if pine:
+        for i in range(3):
+            z = (0.9 + i * 0.75) * s
+            part.cyl((x, y, z), (x, y, z + 1.25 * s), (1.15 - i * 0.28) * s, 0.0, GREEN_DD, GREEN_D, seg=6)
+    else:
+        part.ball((x, y, 2.1 * s), (1.2 * s, 1.2 * s, 1.0 * s), GREEN_L, GREEN_D, seg=6, rings=4)
+        part.ball((x + 0.6 * s, y - 0.2 * s, 1.75 * s), 0.7 * s, GREEN, GREEN_D, seg=6, rings=4)
+        part.ball((x - 0.65 * s, y + 0.1 * s, 1.8 * s), 0.65 * s, GREEN, GREEN_D, seg=6, rings=4)
+
+
+def build_stage():
+    fresh()
+    rnd = random.Random(7)
+
+    # The green: rings of grass round a worn patch of dirt, lifting a little toward the edge
+    ground = Part("ground")
+    bm = ground.bm
+    radii = [0.0, 2.3, 3.3, 5.5, 9.0, 14.0, 22.0, 34.0]
+    tones = [DIRT, DIRT, GREEN_L, GREEN, GREEN, GREEN_D, GREEN_D, GREEN_DD]
+    seg = 18
+    rings = []
+    shade = {}
+    for i, r in enumerate(radii):
+        ring = []
+        for k in range(1 if i == 0 else seg):
+            a = math.tau * k / seg + i * 0.17
+            z = 0.0 if r < 6 else ((r - 6) / 28.0) ** 2 * 5.0 + rnd.uniform(-0.2, 0.2)
+            v = bm.verts.new((math.cos(a) * r, math.sin(a) * r, z))
+            j = rnd.uniform(0.86, 1.1)
+            c = lin(tones[i])
+            shade[v] = (c[0] * j, c[1] * j, c[2] * j, 1.0)
+            ring.append(v)
+        rings.append(ring)
+    for k in range(seg):
+        bm.faces.new((rings[0][0], rings[1][k], rings[1][(k + 1) % seg]))
+    for i in range(1, len(rings) - 1):
+        for k in range(seg):
+            n = (k + 1) % seg
+            bm.faces.new((rings[i][k], rings[i + 1][k], rings[i + 1][n], rings[i][n]))
+    bm.normal_update()
+    for f in bm.faces:
+        if f.normal.z < 0:
+            f.normal_flip()
+        f.smooth = True
+        for l in f.loops:
+            l[ground.col] = shade[l.vert]
+
+    stand = Part("bandstand")
+    stand.cyl((0, 0, 0), (0, 0, 0.1), 2.25, 2.2, BROWN_D, BROWN, seg=12)
+    stand.cyl((0, 0, 0.1), (0, 0, 0.22), 1.9, 1.9, BROWN, WOOD, seg=12)
+    stand.cyl((0, 0, 0.22), (0, 0, 0.225), 1.82, 1.82, WOOD_L, seg=12)
+    stand.cyl((0, 0, 0.225), (0, 0, 0.228), 1.1, 1.1, WOOD, seg=12)
+    # Posts and a patchwork curtain behind
+    for s in (1, -1):
+        stand.cyl((2.4 * s, 1.7, 0), (2.4 * s, 1.7, 3.5), 0.1, 0.07, BROWN_D, BROWN, seg=6)
+        stand.cyl((2.4 * s, 1.7, 3.5), (2.4 * s, 1.7, 3.62), 0.14, 0.1, GOLD_D, GOLD, seg=6)
+    stand.cyl((-2.5, 1.7, 3.2), (2.5, 1.7, 3.2), 0.05, 0.05, BROWN, seg=5)
+    cloth = [RED, PURPLE, RED_D, PURPLE_D, RED, PURPLE]
+    under = [RED_D, PURPLE_D, "#5c1213", "#2c1848", RED_D, PURPLE_D]
+    for i in range(6):
+        x = -2.0 + i * 0.8
+        stand.box((x, 1.72 + (i % 2) * 0.04, 1.85), (0.82, 0.04, 2.7), cloth[i], under[i])
+        stand.cyl((x, 1.66, 3.2), (x, 1.66, 2.82), 0.4, 0.0, GOLD, GOLD_D, seg=4)
+    # A barrel, a crate, and a hat for coins
+    stand.cyl((2.75, -0.5, 0), (2.75, -0.5, 0.85), 0.34, 0.34, BROWN, WOOD, seg=8)
+    for z in (0.15, 0.7):
+        stand.cyl((2.75, -0.5, z), (2.75, -0.5, z + 0.06), 0.355, 0.355, STONE_D, seg=8)
+    stand.box((-2.8, -0.3, 0.35), (0.7, 0.7, 0.7), WOOD, BROWN, rot=(0, 0, 0.4))
+    stand.box((-2.7, -0.25, 0.9), (0.45, 0.45, 0.4), WOOD_L, BROWN, rot=(0, 0, -0.3))
+    stand.cyl((1.15, -1.3, 0.228), (1.15, -1.3, 0.42), 0.13, 0.15, DARK, seg=8)
+    stand.cyl((1.15, -1.3, 0.228), (1.15, -1.3, 0.24), 0.24, 0.24, DARK, seg=8)
+    stand.cyl((1.15, -1.3, 0.3), (1.15, -1.3, 0.33), 0.135, 0.14, RED, seg=8)
+
+    town = Part("town")
+    for x, y, s, pine in ((-5.5, 3.5, 1.5, True), (5.8, 4.2, 1.7, True), (-8.5, 0.5, 1.3, False),
+                          (8.6, 1.0, 1.4, False), (-3.4, 7.5, 1.9, True), (3.6, 8.5, 1.6, False),
+                          (-11.0, 6.0, 2.0, True), (11.5, 7.0, 2.1, True), (0.5, 11.0, 1.8, True),
+                          (-6.5, -3.5, 1.1, False), (7.2, -3.0, 1.2, True)):
+        tree(town, x, y, s, pine, rnd)
+    # A fence round the back of the green
+    last = None
+    for k in range(13):
+        a = math.radians(20 + k * 11.7)
+        p = Vector((math.cos(a) * 4.9, math.sin(a) * 4.9 + 0.3, 0))
+        town.cyl(p, p + Vector((0, 0, 0.75)), 0.06, 0.05, BROWN_D, WOOD, seg=5)
+        if last:
+            for z in (0.3, 0.58):
+                town.cyl(last + Vector((0, 0, z)), p + Vector((0, 0, z)), 0.03, 0.03, WOOD, seg=4)
+        last = p
+    # The town beyond: a clock tower and a few roofs
+    town.box((-7.0, 16.0, 4.5), (2.6, 2.6, 9.0), STONE, STONE_D)
+    town.cyl((-7.0, 16.0, 9.0), (-7.0, 16.0, 11.6), 2.3, 0.0, RED, RED_D, seg=4)
+    for x, y, w, h, c in ((-11.5, 15.0, 3.4, 2.8, WOOD_L), (-2.5, 17.5, 3.8, 3.2, CREAM),
+                          (3.5, 17.0, 3.0, 2.6, STONE), (9.0, 15.5, 3.6, 3.0, WOOD_L)):
+        town.box((x, y, h / 2), (w, 3.0, h), c, STONE_D)
+        town.cyl((x, y, h), (x, y, h + 1.6), w * 0.8, 0.0, RED_D if x > 0 else BLUE_D, DARK, seg=4)
+    for k in range(9):
+        a = math.tau * k / 9 + 0.3
+        town.ball((math.cos(a) * 30, math.sin(a) * 30, 1.0), (9.0, 9.0, rnd.uniform(4.0, 7.0)),
+                  GREEN_D, GREEN_DD, seg=6, rings=4)
+    # Toadstools and flowers in the grass
+    for k in range(16):
+        a = rnd.uniform(0, math.tau)
+        r = rnd.uniform(2.6, 5.6)
+        x, y = math.cos(a) * r, math.sin(a) * r
+        if y < -1.5 and abs(x) < 3.5:
+            continue
+        if k % 3 == 0:
+            town.cyl((x, y, 0), (x, y, 0.16), 0.035, 0.03, CREAM, seg=4)
+            town.cyl((x, y, 0.14), (x, y, 0.25), 0.11, 0.0, RED, seg=6)
+        else:
+            town.cyl((x, y, 0), (x, y, 0.14), 0.012, 0.012, GREEN_D, seg=4)
+            town.ball((x, y, 0.16), 0.045, rnd.choice([WHITE, GOLD, PURPLE_L, "#ff8fb0"]), seg=5, rings=3)
+
+    # Whatever shines by its own light
+    glow = Part("glow_lamps")
+    for s in (1, -1):
+        glow.ball((2.4 * s, 1.7, 3.8), 0.17, LAMP, seg=6, rings=4)
+        glow.cyl((1.25 * s, 1.62, 3.15), (1.25 * s, 1.62, 2.95), 0.005, 0.005, LAMP, seg=4)
+        glow.ball((1.25 * s, 1.62, 2.85), 0.13, LAMP, seg=6, rings=4)
+    glow.cyl((-7.0, 14.68, 7.2), (-7.0, 14.7, 7.2), 0.85, 0.85, "#fff3c4", seg=10)
+    clock = Part("clock_hands")
+    clock.box((-7.0, 14.66, 7.5), (0.1, 0.03, 0.62), DARK)
+    clock.box((-6.82, 14.66, 7.2), (0.42, 0.03, 0.1), DARK)
+
+    write("stage")
+
+
+build_bandsman()
+build_stage()
