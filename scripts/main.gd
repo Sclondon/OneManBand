@@ -15,9 +15,9 @@ const KEYS := {
 }
 const FOV := 38.0
 # What the camera has to keep in the picture: the middle of him, and how tall and wide he is
-const SUBJECT := Vector3(0.0, 1.42, 0.0)
-const TALL := 2.5
-const BROAD := 2.0
+const SUBJECT := Vector3(0.0, 1.5, 0.0)
+const TALL := 2.8
+const BROAD := 2.4
 
 var save_path := "user://one_man_band.json"
 var show_help_first := true
@@ -37,6 +37,8 @@ var mods := {"flat": false, "sharp": false, "down": false, "up": false}
 var held := {}            # button (or "m60" for a MIDI key) -> [voice, recording token]
 var recent: Array[int] = []
 var midi_open := false
+var _page_listener: JavaScriptObject   # (kept, or the browser's side of it is let go)
+var _radio_wait := 0.0
 var time := 0.0
 var _dirty := false
 var _since_save := 0.0
@@ -76,6 +78,9 @@ func _ready() -> void:
 	add_child(hud)
 
 	looper.note_on.connect(_loop_note)
+	if OS.has_feature("web"):
+		_page_listener = JavaScriptBridge.create_callback(_page_said)
+		JavaScriptBridge.get_interface("window").addEventListener("message", _page_listener)
 	looper.changed.connect(func() -> void: _dirty = true)
 	if not load_game():
 		load_demo()
@@ -113,6 +118,10 @@ func _process(delta: float) -> void:
 	man.phase = looper.beat_phase()
 	man.holding = not held.is_empty()
 	_aim()
+	if _radio_wait > 0.0:
+		_radio_wait -= delta
+		if _radio_wait <= 0.0:
+			hud.toast("No answer. The radio is in the Wayside arcade")
 	_since_save += delta
 	if _dirty and _since_save > 3.0:
 		save_game()
@@ -200,6 +209,9 @@ func press(id: String) -> void:
 				hud.toast("A clean sheet")
 			"export":
 				export_midi()
+				hud.menu_open = false
+			"radio":
+				send_to_radio()
 				hud.menu_open = false
 			"midi":
 				open_midi()
@@ -381,6 +393,40 @@ func export_midi() -> void:
 		f.store_buffer(bytes)
 		f.close()
 		hud.toast("Saved to " + ProjectSettings.globalize_path(path))
+
+
+# Sends the loop that is playing (what is not muted of it) up to the page the game is on. In
+# the Wayside arcade that page keeps it on the player's account, and the radio on the station's
+# bench plays it: on one frequency for them, on another for everyone else.
+func send_to_radio() -> void:
+	if looper.section_empty(looper.section):
+		hud.toast("Nothing to send yet. Record something first")
+		return
+	if not OS.has_feature("web"):
+		hud.toast("The radio is in the Wayside arcade. Play there to send it")
+		return
+	var tracks: Array = looper.to_dict().sections[looper.section]
+	for i in tracks.size():
+		if looper.muted[i]:
+			tracks[i] = []
+	var message := JSON.stringify({"type": "ONE_MAN_BAND_SONG", "song": {"bpm": looper.bpm, "bars": looper.bars, "tracks": tracks}})
+	JavaScriptBridge.eval("window.parent.postMessage(%s, '*')" % message)
+	_radio_wait = 6.0
+	hud.toast("Sending it to the station's radio")
+
+
+# The page answers: the name the tune was given, or why it was not taken
+func _page_said(args: Array) -> void:
+	var data: Variant = args[0].data
+	if not data is JavaScriptObject or str(data.type) != "ONE_MAN_BAND_SAVED":
+		return
+	_radio_wait = 0.0
+	if data.ok:
+		hud.toast("On the radio as %s. Tune to 94.7 at the station" % str(data.name))
+	elif str(data.why) == "signin":
+		hud.toast("Sign in to put a tune on the radio")
+	else:
+		hud.toast("The radio would not take it. Try again")
 
 
 # Listens for a MIDI keyboard. Only on request, because a browser asks leave for it.

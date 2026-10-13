@@ -278,7 +278,7 @@ def build_bandsman():
     for z in (1.02, 2.08):
         pack.cyl((-0.22, 0.17, z), (0.22, 0.17, z), 0.015, 0.015, BROWN, seg=5)
     pack.cyl((-0.2, 0.17, 2.1), (-0.2, 0.17, 2.3), 0.01, 0.01, BROWN_D, seg=4)
-    pack.cyl((-0.2, 0.17, 2.235), (-0.2, 0.17, 2.26), 0.02, 0.16, BRASS_D, BRASS, seg=10)
+    pack.cyl((-0.2, 0.17, 2.225), (-0.2, 0.17, 2.26), 0.02, 0.27, BRASS_D, BRASS, seg=10)
     pack.pipe([(-0.2, 0.17, 1.7), (-0.42, 0.19, 1.86), (-0.56, 0.2, 2.02)], 0.012, BROWN_D, seg=4)
 
     big = Part("pack_drum", pack, (0, 0.37, 1.25))
@@ -289,24 +289,28 @@ def build_bandsman():
     tom = Part("pack_tom", pack, (-0.37, 0.36, 1.6))
     drum(tom, (-0.33, 0.36, 1.53), (-0.41, 0.36, 1.67), 0.125, BLUE, seg=8)
 
+    # Everything on the rig is bigger than it has any business being
     hat = Part("cym_top", pack, (-0.2, 0.17, 2.285))
-    hat.cyl((-0.2, 0.17, 2.27), (-0.2, 0.17, 2.3), 0.16, 0.02, BRASS, BRASS_D, seg=10)
+    hat.cyl((-0.2, 0.17, 2.27), (-0.2, 0.17, 2.31), 0.27, 0.02, BRASS, BRASS_D, seg=10)
 
     crash = Part("cym_crash", pack, (-0.56, 0.2, 2.03))
-    crash.cyl((-0.555, 0.2, 2.03), (-0.575, 0.19, 2.065), 0.21, 0.025, BRASS, BRASS_D, seg=10)
+    crash.cyl((-0.555, 0.2, 2.03), (-0.585, 0.185, 2.08), 0.36, 0.03, BRASS, BRASS_D, seg=10)
 
     chimes = Part("pack_bells", pack, (0, 0.17, 2.08))
-    for x in (-0.11, -0.035, 0.035, 0.11):
-        chimes.cyl((x, 0.17, 2.07), (x, 0.17, 2.03), 0.004, 0.004, BROWN_D, seg=4)
-        chimes.cyl((x, 0.17, 2.03), (x, 0.17, 1.965), 0.012, 0.04, GOLD, GOLD_D, seg=6)
-        chimes.ball((x, 0.17, 1.955), 0.014, GOLD_D, seg=5, rings=3)
+    for x in (-0.15, -0.05, 0.05, 0.15):
+        chimes.cyl((x, 0.17, 2.07), (x, 0.17, 2.02), 0.005, 0.005, BROWN_D, seg=4)
+        chimes.cyl((x, 0.17, 2.02), (x, 0.17, 1.9), 0.016, 0.07, GOLD, GOLD_D, seg=6)
+        chimes.ball((x, 0.17, 1.885), 0.024, GOLD_D, seg=5, rings=3)
 
     tuba = Part("tuba", pack, (0.36, 0.2, 1.72))
     tuba.pipe([(0.42, 0.3, 0.98), (0.47, 0.42, 1.2), (0.42, 0.3, 1.45), (0.36, 0.22, 1.2),
-               (0.3, 0.24, 1.0)], 0.035, BRASS_D, BRASS)
-    tuba.cyl((0.42, 0.3, 1.45), (0.36, 0.2, 1.74), 0.045, 0.065, BRASS_D, BRASS, seg=8)
-    tuba.cyl((0.36, 0.2, 1.74), (0.46, 0.05, 2.1), 0.065, 0.25, BRASS, GOLD, seg=10)
-    tuba.cyl((0.445, 0.072, 2.045), (0.461, 0.048, 2.104), 0.16, 0.215, BRASS_D, DARK, seg=10)
+               (0.3, 0.24, 1.0)], 0.045, BRASS_D, BRASS)
+    tuba.cyl((0.42, 0.3, 1.45), (0.36, 0.2, 1.74), 0.055, 0.075, BRASS_D, BRASS, seg=8)
+    tuba.cyl((0.36, 0.2, 1.74), (0.56, -0.05, 2.3), 0.075, 0.46, BRASS, GOLD, seg=12)
+    tuba.cyl((0.536, -0.02, 2.233), (0.558, -0.0475, 2.294), 0.33, 0.4, BRASS_D, DARK, seg=12)
+    # (and a little one growing out of its side, for the high notes)
+    tuba.cyl((0.39, 0.25, 1.6), (0.62, 0.3, 1.78), 0.03, 0.035, BRASS_D, BRASS, seg=6)
+    tuba.cyl((0.62, 0.3, 1.78), (0.78, 0.26, 1.98), 0.035, 0.15, BRASS, GOLD, seg=8)
 
     # The tuba's mouth pipe only comes round to the front while he is playing it
     lead = Part("tuba_pipe", torso, (0, 0, 1.2))
@@ -314,69 +318,98 @@ def build_bandsman():
               0.016, BRASS_D, BRASS, seg=4)
     lead.cyl((0.02, -0.2, 1.55), (0.0, -0.17, 1.6), 0.012, 0.026, BRASS, seg=5)
 
-    # What he holds. Each is built about its own origin, where the game takes hold of it.
-    # A piccolo, played sideways: the lip hole is at the origin and the pipe runs out to his right
+    # What he holds. Each is built about its own origin, where the game takes hold of it, and
+    # each is far too big, or has grown something it should not have.
+
+    # A piccolo as long as his arm, played sideways: the lip hole is at the origin, the pipe
+    # runs out to his right, and the far end curls up into a horn
     pc = Part("piccolo")
-    pc.cyl((0.05, 0, 0), (-0.3, 0, 0), 0.015, 0.013, DARK, seg=6)
-    for x in (0.05, -0.05, -0.3):
-        pc.cyl((x + 0.008, 0, 0), (x - 0.008, 0, 0), 0.019, 0.019, WHITE, seg=6)
-    pc.ball((0.0, -0.004, 0.013), (0.012, 0.01, 0.006), WHITE, seg=5, rings=3)
-    for x in (-0.09, -0.125, -0.16, -0.195, -0.23, -0.265):
-        pc.ball((x, -0.006, 0.014), 0.009, WHITE, seg=4, rings=3)
-
-    tr = Part("trumpet")
-    tr.cyl((0, 0.0, 0), (0, -0.045, 0), 0.02, 0.008, GOLD, seg=5)
-    tr.cyl((0, -0.04, 0), (0, -0.42, 0), 0.011, 0.013, BRASS, seg=5)
-    tr.cyl((0, -0.42, 0), (0, -0.57, 0), 0.014, 0.085, BRASS, GOLD, seg=8)
-    tr.cyl((0, -0.57, 0), (0, -0.595, 0), 0.085, 0.115, GOLD, seg=8)
-    tr.pipe([(0, -0.12, 0), (0, -0.12, -0.055), (0, -0.36, -0.055), (0, -0.36, 0)], 0.011, BRASS_D, seg=4)
-    for y in (-0.2, -0.24, -0.28):
-        tr.cyl((0, y, -0.07), (0, y, 0.055), 0.015, 0.015, BRASS_D, BRASS, seg=5)
-        tr.cyl((0, y, 0.055), (0, y, 0.07), 0.01, 0.017, CREAM, seg=5)
-
-    al = Part("acc_L")
-    al.box((0.05, 0, 0), (0.1, 0.17, 0.32), RED, RED_D)
-    al.box((0.104, -0.035, 0), (0.012, 0.075, 0.28), CREAM)
+    pc.cyl((0.06, 0, 0), (-0.5, 0, 0), 0.022, 0.02, DARK, seg=6)
+    for x in (0.06, -0.06, -0.5):
+        pc.cyl((x + 0.01, 0, 0), (x - 0.01, 0, 0), 0.029, 0.029, GOLD, seg=6)
+    pc.ball((0.0, -0.005, 0.02), (0.016, 0.014, 0.008), GOLD, seg=5, rings=3)
     for i in range(6):
-        al.box((0.111, -0.05, -0.115 + i * 0.046), (0.006, 0.04, 0.018), DARK)
-    al.box((0.05, 0, 0.165), (0.105, 0.175, 0.014), GOLD)
-    al.box((0.05, 0, -0.165), (0.105, 0.175, 0.014), GOLD)
+        pc.ball((-0.12 - i * 0.06, -0.008, 0.021), 0.014, GOLD, seg=4, rings=3)
+    pc.pipe([(-0.5, 0, 0), (-0.6, 0, 0.02), (-0.67, 0, 0.1), (-0.66, 0, 0.2)], 0.021, DARK, seg=5)
+    pc.cyl((-0.66, 0, 0.2), (-0.6, 0, 0.34), 0.025, 0.12, BRASS, GOLD, seg=8)
+    pc.cyl((-0.607, 0, 0.324), (-0.6, 0, 0.341), 0.085, 0.1, BRASS_D, DARK, seg=8)
+    for y in (-0.012, 0.012):
+        pc.cyl((-0.3, y, -0.02), (-0.3 - y * 3, y * 2, -0.22), 0.022, 0.0, RED, RED_D, seg=4)
+
+    # A trumpet with three bells
+    tr = Part("trumpet")
+    tr.cyl((0, 0.0, 0), (0, -0.045, 0), 0.022, 0.009, GOLD, seg=5)
+    tr.cyl((0, -0.04, 0), (0, -0.5, 0), 0.013, 0.017, BRASS, seg=5)
+    tr.cyl((0, -0.5, 0), (0, -0.78, 0), 0.018, 0.2, BRASS, GOLD, seg=10)
+    tr.cyl((0, -0.78, 0), (0, -0.82, 0), 0.2, 0.28, GOLD, seg=10)
+    tr.cyl((0, -0.79, 0), (0, -0.815, 0), 0.15, 0.19, BRASS_D, DARK, seg=10)
+    for s in (1, -1):
+        tr.pipe([(0, -0.4, 0), (0.12 * s, -0.52, 0.07), (0.17 * s, -0.6, 0.11)], 0.012, BRASS_D, seg=4)
+        tr.cyl((0.17 * s, -0.6, 0.11), (0.27 * s, -0.75, 0.18), 0.014, 0.12, BRASS, GOLD, seg=8)
+        tr.cyl((0.262 * s, -0.738, 0.174), (0.27 * s, -0.752, 0.181), 0.08, 0.09, BRASS_D, DARK, seg=8)
+    tr.pipe([(0, -0.12, 0), (0, -0.12, -0.07), (0, -0.38, -0.07), (0, -0.38, 0)], 0.013, BRASS_D, seg=4)
+    for y in (-0.19, -0.24, -0.29):
+        tr.cyl((0, y, -0.085), (0, y, 0.07), 0.019, 0.019, BRASS_D, BRASS, seg=5)
+        tr.cyl((0, y, 0.07), (0, y, 0.095), 0.012, 0.024, CREAM, seg=5)
+
+    # An accordion with organ pipes coming out of the top
+    al = Part("acc_L")
+    al.box((0.07, 0, 0), (0.14, 0.2, 0.46), RED, RED_D)
+    al.box((0.146, -0.04, 0), (0.014, 0.09, 0.4), CREAM)
+    for i in range(8):
+        al.box((0.155, -0.058, -0.168 + i * 0.048), (0.006, 0.05, 0.02), DARK)
+    al.box((0.07, 0, 0.235), (0.146, 0.206, 0.018), GOLD)
+    al.box((0.07, 0, -0.235), (0.146, 0.206, 0.018), GOLD)
+    for y, h in ((-0.05, 0.2), (0.05, 0.32)):
+        al.cyl((0.07, y, 0.24), (0.07, y, 0.24 + h), 0.03, 0.03, BRASS_D, GOLD, seg=6)
+        al.cyl((0.07, y, 0.24 + h), (0.07, y, 0.26 + h), 0.03, 0.04, GOLD, seg=6)
     ar = Part("acc_R")
-    ar.box((-0.05, 0, 0), (0.1, 0.17, 0.32), RED, RED_D)
-    for i in range(4):
+    ar.box((-0.07, 0, 0), (0.14, 0.2, 0.46), RED, RED_D)
+    for i in range(5):
         for j in range(2):
-            ar.ball((-0.103, -0.03 + j * 0.05, -0.09 + i * 0.06), 0.014, CREAM, seg=4, rings=3)
-    ar.box((-0.05, 0, 0.165), (0.105, 0.175, 0.014), GOLD)
-    ar.box((-0.05, 0, -0.165), (0.105, 0.175, 0.014), GOLD)
+            ar.ball((-0.144, -0.035 + j * 0.06, -0.14 + i * 0.07), 0.018, CREAM, seg=4, rings=3)
+    ar.box((-0.07, 0, 0.235), (0.146, 0.206, 0.018), GOLD)
+    ar.box((-0.07, 0, -0.235), (0.146, 0.206, 0.018), GOLD)
+    for y, h in ((-0.06, 0.16), (0.0, 0.27), (0.06, 0.38)):
+        ar.cyl((-0.07, y, 0.24), (-0.07, y, 0.24 + h), 0.026, 0.026, BRASS_D, GOLD, seg=6)
+        ar.cyl((-0.07, y, 0.24 + h), (-0.07, y, 0.26 + h), 0.026, 0.036, GOLD, seg=6)
     # One unit wide, for the game to stretch
     ab = Part("acc_bellows")
     for i in range(6):
         x = (i + 0.5) / 6.0 - 0.5
-        ab.box((x, 0, 0), (1 / 6.0, 0.125, 0.27), DARK)
-        ab.box((x, 0, 0), (1 / 15.0, 0.158, 0.305), CREAM)
+        ab.box((x, 0, 0), (1 / 6.0, 0.15, 0.4), DARK)
+        ab.box((x, 0, 0), (1 / 15.0, 0.19, 0.45), CREAM)
 
+    # A guitar the size of a cello, with a gramophone horn let into its side
     gt = Part("guitar")
-    gt.cyl((0, -0.035, 0), (0, 0.035, 0), 0.17, 0.17, WOOD, BROWN, seg=10)
-    gt.cyl((0.18, -0.035, 0), (0.18, 0.035, 0), 0.125, 0.125, WOOD, BROWN, seg=10)
-    gt.cyl((0, -0.041, 0), (0, -0.035, 0), 0.155, 0.155, WOOD_L, seg=10)
-    gt.cyl((0.18, -0.041, 0), (0.18, -0.035, 0), 0.112, 0.112, WOOD_L, seg=10)
-    gt.cyl((0.09, -0.046, 0), (0.09, -0.04, 0), 0.05, 0.05, DARK, seg=8)
-    gt.box((0.5, -0.03, 0), (0.44, 0.03, 0.045), BROWN_D)
-    gt.box((0.76, -0.03, 0), (0.11, 0.03, 0.075), BROWN)
-    gt.box((-0.08, -0.047, 0), (0.022, 0.012, 0.1), BROWN_D)
-    gt.box((0.34, -0.048, 0), (0.86, 0.004, 0.03), CREAM)
+    gt.cyl((0, -0.05, 0), (0, 0.05, 0), 0.25, 0.25, WOOD, BROWN, seg=10)
+    gt.cyl((0.27, -0.05, 0), (0.27, 0.05, 0), 0.18, 0.18, WOOD, BROWN, seg=10)
+    gt.cyl((0, -0.058, 0), (0, -0.05, 0), 0.232, 0.232, WOOD_L, seg=10)
+    gt.cyl((0.27, -0.058, 0), (0.27, -0.05, 0), 0.165, 0.165, WOOD_L, seg=10)
+    gt.cyl((0.14, -0.065, 0), (0.14, -0.057, 0), 0.07, 0.07, DARK, seg=8)
+    gt.box((0.72, -0.04, 0), (0.62, 0.04, 0.06), BROWN_D)
+    gt.box((1.08, -0.04, 0), (0.14, 0.04, 0.1), BROWN)
+    gt.ball((1.17, -0.045, 0.04), 0.055, BROWN, BROWN_D, seg=6, rings=4)
+    for i in range(4):
+        gt.ball((1.04 + (i % 2) * 0.07, -0.04, 0.065 if i < 2 else -0.065), 0.02, GOLD, seg=4, rings=3)
+    gt.box((-0.12, -0.066, 0), (0.03, 0.016, 0.14), BROWN_D)
+    gt.box((0.48, -0.068, 0), (1.2, 0.005, 0.04), CREAM)
+    gt.cyl((-0.1, -0.05, -0.14), (-0.27, -0.25, -0.33), 0.035, 0.16, BRASS, GOLD, seg=8)
+    gt.cyl((-0.257, -0.234, -0.315), (-0.27, -0.251, -0.331), 0.11, 0.13, BRASS_D, DARK, seg=8)
 
     hb = Part("bell_hand")
-    hb.cyl((0, 0.04, 0), (0, -0.07, 0), 0.013, 0.013, BROWN, seg=5)
-    hb.cyl((0, -0.07, 0), (0, -0.17, 0), 0.02, 0.075, GOLD, GOLD_D, seg=7)
-    hb.ball((0, -0.175, 0), 0.02, GOLD_D, seg=5, rings=3)
+    hb.cyl((0, 0.06, 0), (0, -0.1, 0), 0.02, 0.02, BROWN, seg=5)
+    hb.cyl((0, -0.1, 0), (0, -0.32, 0), 0.035, 0.15, GOLD, GOLD_D, seg=8)
+    hb.cyl((0, -0.32, 0), (0, -0.345, 0), 0.15, 0.17, GOLD, seg=8)
+    hb.ball((0, -0.37, 0), 0.042, GOLD_D, seg=5, rings=3)
 
+    # Mallets with heads like toffee apples
     st = Part("stick")
-    st.cyl((0, 0.05, 0), (0, -0.3, 0), 0.013, 0.008, CREAM, seg=5)
-    st.ball((0, -0.305, 0), 0.016, CREAM, seg=5, rings=3)
+    st.cyl((0, 0.06, 0), (0, -0.36, 0), 0.016, 0.012, CREAM, seg=5)
+    st.ball((0, -0.39, 0), 0.045, RED, RED_D, seg=6, rings=4)
 
     sn = Part("snare")
-    drum(sn, (0, 0, -0.055), (0, 0, 0.055), 0.165, BLUE, seg=10)
+    drum(sn, (0, 0, -0.08), (0, 0, 0.08), 0.24, BLUE, seg=10)
 
     write("bandsman")
 

@@ -15,7 +15,10 @@ thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a pho
   track, mute this track, metronome (`M`), tempo, loop length (1, 2, 4 or 8 bars; doubling repeats what is there),
   and four sections A to D that swap at the end of the loop.
 - **Menu**: tuning (which five notes), key, snap, song mode (plays the sections in turn), the house band, new song,
-  save as a MIDI file, MIDI keyboard in, sound.
+  send to the station radio, save as a MIDI file, MIDI keyboard in, sound.
+- **The radio**: in the Wayside arcade, "Send to the station radio" posts the playing loop to the page
+  (`ONE_MAN_BAND_SONG`), which keeps it on the player's account; the radio on the station's bench plays it
+  on 94.7 for them and on 101.3 for everyone else. The page answers `ONE_MAN_BAND_SAVED`.
 - **Tune book**: three short melodies that change the weather and the time of day. They are in "How to play".
 
 ## Layout

@@ -27,7 +27,7 @@ const GOLD := Color("f8ca22")
 # The five note buttons, lowest to highest
 const PAD_COLORS: Array[Color] = [Color("4fb0ff"), Color("58d68d"), Color("f8ca22"), Color("ff9a3d"), Color("ff6b7c")]
 const TRANSPORT := ["rec", "play", "undo", "clear", "mute", "metro", "bpm-", "bpm", "bpm+", "bars", "s0", "s1", "s2", "s3", "menu"]
-const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "export", "midi", "sound", "help", "close"]
+const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "radio", "export", "midi", "sound", "help", "close"]
 const BENDERS := ["flat", "sharp", "down", "up"]
 
 var band: Band
@@ -113,7 +113,7 @@ func layout(screen: Vector2) -> void:
 			cell.x * 2.0 + 44.0, 6.0 * (cell.y + 8.0) + 92.0)
 	for k in MENU.size():
 		var at := menu_rect.position + Vector2(16.0 + (k % 2) * (cell.x + 12.0), 70.0 + (k / 2) * (cell.y + 8.0))
-		buttons["menu:" + MENU[k]] = {"rect": Rect2(at, cell if k < 10 else Vector2(cell.x * 2.0 + 12.0, cell.y))}
+		buttons["menu:" + MENU[k]] = {"rect": Rect2(at, cell)}
 
 
 # Lays `ids` out in a row `width` wide, centred, and returns where the next row would start
@@ -607,11 +607,12 @@ func _draw_menu() -> void:
 		"chain": "Song mode: " + ("A to D in turn" if looper.chain else "off"),
 		"demo": "Load the house band",
 		"new": "New song",
+		"radio": "Send to the station radio",
 		"export": "Save as MIDI file",
 		"midi": "MIDI keyboard: " + ("on" if band.midi_open else "off"),
 		"sound": "Sound: " + ("on" if band.synth.sound else "off"),
 		"help": "How to play",
-		"close": "Back to the band",
+		"close": "Back",
 	}
 	for id: String in MENU:
 		var last := id == "close"

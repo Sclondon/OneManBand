@@ -16,11 +16,11 @@ const INK := Color("3a1c14")
 const REACH := [
 	[Vector3(-0.07, 0.56, 0.22), Vector3(-0.2, 0.555, 0.2)],
 	[Vector3(0.04, 0.555, 0.3), Vector3(-0.03, 0.6, 0.37)],
-	[Vector3(0.2, 0.2, 0.28), null],
-	[Vector3(0.34, 0.25, 0.24), Vector3(-0.07, 0.06, 0.28)],
+	[Vector3(0.26, 0.14, 0.32), null],
+	[Vector3(0.47, 0.25, 0.28), Vector3(-0.1, -0.01, 0.35)],
 	[Vector3(0.13, 0.27, 0.23), Vector3(-0.03, 0.44, 0.23)],
-	[Vector3(0.3, 0.3, 0.26), null],
-	[Vector3(0.14, 0.15, 0.3), null],
+	[Vector3(0.34, 0.3, 0.28), null],
+	[Vector3(0.18, 0.2, 0.38), null],
 ]
 
 var stage: Stage
@@ -38,8 +38,8 @@ var hand_at: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
 var strike: Array[float] = [0.0, 0.0]
 var pops := {}
 var sizes := {}
-var half := 0.08         # half the accordion's bellows
-var half_to := 0.08
+var half := 0.1          # half the accordion's bellows
+var half_to := 0.1
 var lift := 0.0
 var energy := 0.0
 var stomp := 0.0
@@ -75,11 +75,11 @@ func _ready() -> void:
 			Transform3D(Basis(Vector3.BACK, 1.2), Vector3(0.21, 0.12, 0.12)))
 	_carry(Kit.TRUMPET, p.trumpet, Transform3D(Basis(Vector3.UP, -0.5) * Basis(Vector3.RIGHT, 0.28), Vector3(0.0, 0.605, 0.17)),
 			Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3(-0.31, 0.5, -0.17)))
-	_carry(Kit.ACCORDION, acc, Transform3D(Basis(), Vector3(0.0, 0.2, 0.26)), null)
-	_carry(Kit.GUITAR, p.guitar, Transform3D(Basis(Vector3.BACK, 0.38), Vector3(-0.1, 0.07, 0.21)),
+	_carry(Kit.ACCORDION, acc, Transform3D(Basis(), Vector3(0.0, 0.14, 0.32)), null)
+	_carry(Kit.GUITAR, p.guitar, Transform3D(Basis(Vector3.BACK, 0.38), Vector3(-0.16, 0.0, 0.26)),
 			Transform3D(Basis(Vector3.BACK, -1.15) * Basis(Vector3.UP, PI), Vector3(0.05, 0.3, -0.62)))
 	_carry(Kit.TUBA, p.tuba_pipe, p.tuba_pipe.transform, null)
-	_carry(Kit.DRUMS, p.snare, Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0.0, 0.0, 0.33)),
+	_carry(Kit.DRUMS, p.snare, Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0.0, -0.03, 0.42)),
 			Transform3D(Basis(Vector3.BACK, -PI / 2.0), Vector3(0.5, 0.05, -0.36)))
 	# Two of each thing that takes a hand apiece
 	for piece: String in ["bell_hand", "stick"]:
@@ -123,7 +123,7 @@ func on_note(which: int, b: int, live: bool) -> void:
 		return
 	match which:
 		Kit.ACCORDION:
-			half_to = 0.15 if half_to < 0.1 else 0.055
+			half_to = 0.2 if half_to < 0.14 else 0.08
 		Kit.GUITAR:
 			strike[1] = 1.0
 		Kit.BELLS:
@@ -227,7 +227,7 @@ func _hand_goal(h: int) -> Vector3:
 		at = pair[1] if pair[1] != null else at * Vector3(-1, 1, 1)
 	match inst:
 		Kit.ACCORDION:
-			at.x = (half + 0.11) * (1.0 if h == 0 else -1.0)
+			at.x = (half + 0.16) * (1.0 if h == 0 else -1.0)
 		Kit.GUITAR:
 			if h == 1:
 				at.y += 0.09 * sin(strike[1] * PI) - 0.02
@@ -240,7 +240,7 @@ func _hand_goal(h: int) -> Vector3:
 			at = p.trumpet.transform * (Vector3(0.03, -0.045, 0.13) if h == 0 else Vector3(-0.025, 0.0, 0.23))
 		Kit.PICCOLO:
 			# Along the pipe, out to his right
-			at = p.piccolo.transform * (Vector3(-0.07, -0.02, 0.02) if h == 0 else Vector3(-0.2, -0.02, 0.02))
+			at = p.piccolo.transform * (Vector3(-0.1, -0.03, 0.02) if h == 0 else Vector3(-0.27, -0.03, 0.02))
 	return at
 
 
