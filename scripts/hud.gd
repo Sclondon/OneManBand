@@ -94,7 +94,7 @@ func layout(screen: Vector2) -> void:
 	for k in 4:
 		buttons[BENDERS[k]] = {"rect": Rect2(m + 4.0 + (k % 2) * 108.0, s.y - m - 212.0 + (k / 2) * 108.0, 98.0, 98.0)}
 
-	var count := Kit.INSTRUMENTS.size()
+	var count := Kit.SHELF.size()
 	var x0 := m
 	var x1 := s.x - m
 	var top := pads_top - 18.0
@@ -102,11 +102,16 @@ func layout(screen: Vector2) -> void:
 		x0 = m + 4.0 + 206.0 + 14.0
 		x1 = pads_left - 14.0
 		top = s.y - m - 4.0
-	var side := clampf((x1 - x0 - (count - 1) * 8.0) / count, 40.0, 92.0)
-	var start := (x0 + x1 - count * side - (count - 1) * 8.0) / 2.0
-	for i in count:
-		buttons["i%d" % i] = {"rect": Rect2(start + i * (side + 8.0), top - side, side, side)}
-	free_rect = Rect2(x0, staff.end.y + 4.0, x1 - x0, top - side - 12.0 - staff.end.y) if wide else Rect2(0.0, y, s.x, top - side - 8.0 - y)
+	# In one row if they are a fair size that way, or else in two
+	var per := count
+	if (x1 - x0 - (count - 1) * 8.0) / count < 58.0:
+		per = ceili(count / 2.0)
+	var side := clampf((x1 - x0 - (per - 1) * 8.0) / per, 40.0, 92.0)
+	var start := (x0 + x1 - per * side - (per - 1) * 8.0) / 2.0
+	var block := ceili(float(count) / per) * (side + 8.0) - 8.0
+	for k in count:
+		buttons["i%d" % Kit.SHELF[k]] = {"rect": Rect2(start + (k % per) * (side + 8.0), top - block + (k / per) * (side + 8.0), side, side)}
+	free_rect = Rect2(x0, staff.end.y + 4.0, x1 - x0, top - block - 12.0 - staff.end.y) if wide else Rect2(0.0, y, s.x, top - block - 8.0 - y)
 
 	var cell := Vector2(minf(300.0, (s.x - 64.0) / 2.0), 58.0)
 	menu_rect = Rect2((s.x - cell.x * 2.0 - 44.0) / 2.0, (s.y - 6.0 * (cell.y + 8.0) - 92.0) / 2.0,
@@ -572,6 +577,36 @@ func _draw_instrument(i: int, c: Vector2, k: float, col: Color) -> void:
 			draw_colored_polygon([c + Vector2(-20, 13) * k, c + Vector2(20, 13) * k, c + Vector2(18, 17) * k, c + Vector2(-18, 17) * k], dark)
 			draw_line(c + Vector2(-7, -9) * k, c + Vector2(-10, 5) * k, pale, 3.0 * k, true)
 			draw_circle(c + Vector2(0, 21) * k, 4.6 * k, dark)
+		Kit.KEYTAR:
+			draw_line(c + Vector2(6, -6) * k, c + Vector2(27, -19) * k, dark, 6.0 * k, true)
+			draw_colored_polygon([c + Vector2(-26, -3) * k, c + Vector2(10, -13) * k, c + Vector2(14, 6) * k, c + Vector2(-23, 17) * k], col)
+			draw_colored_polygon([c + Vector2(-22, 3) * k, c + Vector2(8, -5) * k, c + Vector2(10, 3) * k, c + Vector2(-20, 12) * k], CREAM)
+			for t: float in [0.15, 0.3, 0.45, 0.6, 0.75, 0.9]:
+				draw_line(c + Vector2(-22, 3).lerp(Vector2(8, -5), t) * k, c + Vector2(-21, 8).lerp(Vector2(9, 0), t) * k, hole, 2.2 * k)
+			draw_circle(c + Vector2(-17, -1) * k, 2.4 * k, pale)
+		Kit.THEREMIN:
+			_box(Rect2(c + Vector2(-17, 2) * k, Vector2(34, 17) * k), dark, 3.0 * k)
+			_box(Rect2(c + Vector2(-15, 4) * k, Vector2(30, 13) * k), col.darkened(0.2), 2.0 * k)
+			for x: float in [-6.0, 4.0]:
+				draw_circle(c + Vector2(x, 10.5) * k, 3.0 * k, hole)
+			draw_line(c + Vector2(13, 3) * k, c + Vector2(13, -24) * k, col, 3.0 * k, true)
+			draw_circle(c + Vector2(13, -24) * k, 3.2 * k, col)
+			draw_arc(c + Vector2(-20, 8) * k, 7.0 * k, PI * 0.5, PI * 1.5, 10, col, 3.0 * k, true)
+			for r: float in [7.0, 12.0]:
+				draw_arc(c + Vector2(13, -14) * k, r * k, PI * 0.75, PI * 1.25, 8, Color(col, 0.7), 2.0 * k, true)
+		Kit.VIOLA:
+			var up := Vector2(0.7, -0.7)
+			var o := c + Vector2(-6, 6) * k
+			draw_line(o + up * 8.0 * k, o + up * 31.0 * k, dark, 5.0 * k, true)
+			draw_circle(o + up * 33.0 * k, 4.0 * k, dark)
+			draw_circle(o - up * 5.0 * k, 13.5 * k, dark)
+			draw_circle(o + up * 9.0 * k, 10.5 * k, dark)
+			draw_circle(o - up * 5.0 * k, 11.5 * k, col)
+			draw_circle(o + up * 9.0 * k, 8.5 * k, col)
+			for side: float in [-1.0, 1.0]:
+				draw_circle(o + (up * 2.0 + Vector2(0.7, 0.7) * 11.0 * side) * k, 3.4 * k, dark)
+			draw_line(o - up * 12.0 * k, o + up * 30.0 * k, Color(pale, 0.9), 1.4 * k, true)
+			draw_line(c + Vector2(-25, -12) * k, c + Vector2(24, 12) * k, CREAM, 2.4 * k, true)
 		Kit.DRUMS:
 			draw_rect(Rect2(c + Vector2(-20, -2) * k, Vector2(40, 18) * k), col)
 			_oval(c + Vector2(0, 16) * k, Vector2(20, 6.5) * k, col)
@@ -626,7 +661,7 @@ func _draw_help() -> void:
 		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. The cream keys bend whatever you play while you hold them: flat, sharp, an octave down, an octave up.",
 		"Along the bottom is everything he carries. Tap one and he plays that.",
 		"Press the red lamp, wait for four ticks, and play. It comes round again, and again. Change instrument and play over it. The arrow takes back the last thing you added, the dustbin empties this instrument's track, and A B C D are four loops to move between.",
-		"Keys: A S D F G for notes, arrows to bend, 1 to 7 for instruments, Space to play, R to record, Z to take back.",
+		"Keys: A S D F G for notes, arrows to bend, 1 to 0 for instruments, Space to play, R to record, Z to take back.",
 	]
 	var h := 84.0 + 40.0 + Kit.TUNES.size() * 42.0 + 50.0
 	for line: String in lines:

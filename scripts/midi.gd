@@ -29,7 +29,8 @@ static func write(looper: Looper) -> PackedByteArray:
 	for inst in Kit.INSTRUMENTS.size():
 		var kit := Kit.INSTRUMENTS[inst]
 		var drums := Kit.is_drums(inst)
-		var channel := 9 if drums else inst
+		# (channel 9 is the drums' own, so the instruments after it move up one)
+		var channel := 9 if drums else (inst if inst < 9 else inst + 1)
 		var events := []   # [tick, 0 for off or 1 for on, key]
 		for k in order.size():
 			for note: Dictionary in looper.sections[order[k]][inst]:

@@ -10,9 +10,9 @@ extends Node
 const KEYS := {
 	KEY_A: "n0", KEY_S: "n1", KEY_D: "n2", KEY_F: "n3", KEY_G: "n4",
 	KEY_LEFT: "flat", KEY_RIGHT: "sharp", KEY_DOWN: "down", KEY_UP: "up",
-	KEY_1: "i0", KEY_2: "i1", KEY_3: "i2", KEY_4: "i3", KEY_5: "i4", KEY_6: "i5", KEY_7: "i6",
 	KEY_SPACE: "play", KEY_R: "rec", KEY_Z: "undo", KEY_M: "metro", KEY_ESCAPE: "close",
 }
+const NUMBER_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0]
 const FOV := 38.0
 # What the camera has to keep in the picture: the middle of him, and how tall and wide he is
 const SUBJECT := Vector3(0.0, 1.55, 0.0)
@@ -136,6 +136,9 @@ func _notification(what: int) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and not event.echo:
 		var id: String = KEYS.get(event.physical_keycode, "")
+		var number := NUMBER_KEYS.find(event.physical_keycode)
+		if number >= 0 and number < Kit.SHELF.size():
+			id = "i%d" % Kit.SHELF[number]
 		if id != "":
 			hud.key(id, event.pressed)
 			get_viewport().set_input_as_handled()

@@ -14,14 +14,27 @@ var noise := RandomNumberGenerator.new()
 func _initialize() -> void:
 	noise.seed = 1987
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://sounds"))
+	# Each held instrument has its own way of starting a note and its own colour once it is going:
+	#   attack   seconds to speak
+	#   scoop    semitones off the note it starts from, sliding in over the attack
+	#   bright   a second set of harmonics it starts on and melts out of
+	#   vib/rate how far (as a part of the pitch) and how fast (a second) it wobbles
+	#   breath   air, bow or reed noise under it
+	#   voices   [times the pitch, waves more or fewer in the loop (a slow beat), loudness]
 	for m: int in [72, 84, 96]:
-		_held("piccolo_%d" % m, m, _piccolo, 0.03, 0.004, 0.05, [[1, 0, 1.0]])
+		_held("piccolo_%d" % m, m, _piccolo, {"attack": 0.025, "vib": 0.004, "rate": 6, "breath": 0.07})
 	for m: int in [48, 60, 72]:
-		_held("trumpet_%d" % m, m, _trumpet, 0.035, 0.0035, 0.006, [[1, 0, 1.0]])
+		_held("trumpet_%d" % m, m, _trumpet, {"attack": 0.05, "scoop": -0.7, "bright": _trumpet_blare, "vib": 0.002, "rate": 5, "breath": 0.004})
 	for m: int in [48, 60, 72]:
-		_held("accordion_%d" % m, m, _reed, 0.05, 0.0, 0.004, [[1, 0, 1.0], [1, 4, 0.8], [2, -3, 0.3]])
+		_held("accordion_%d" % m, m, _reed, {"attack": 0.07, "breath": 0.004, "voices": [[1, 0, 1.0], [1, 6, 0.85], [2, -3, 0.35]]})
 	for m: int in [36, 48, 60]:
-		_held("tuba_%d" % m, m, _tuba, 0.06, 0.002, 0.008, [[1, 0, 1.0]])
+		_held("tuba_%d" % m, m, _tuba, {"attack": 0.1, "scoop": -0.5, "vib": 0.001, "rate": 4, "breath": 0.012})
+	for m: int in [48, 60, 72]:
+		_held("keytar_%d" % m, m, _keytar, {"attack": 0.09, "bright": _keytar_open, "voices": [[1, 0, 1.0], [1, 3, 0.8], [1, -2, 0.6]]})
+	for m: int in [60, 72, 84]:
+		_held("theremin_%d" % m, m, _theremin, {"attack": 0.16, "scoop": -2.5, "vib": 0.013, "rate": 6})
+	for m: int in [48, 60, 72]:
+		_held("viola_%d" % m, m, _viola, {"attack": 0.11, "vib": 0.005, "rate": 5, "breath": 0.025})
 	for m: int in [48, 60, 72]:
 		_plucked("guitar_%d" % m, m)
 	for m: int in [72, 84, 96]:
@@ -32,29 +45,65 @@ func _initialize() -> void:
 
 
 # How strong harmonic h of a note at hz is, for each of the held instruments
+
+# A flute's: nearly all in the first two
 func _piccolo(h: int, _hz: float) -> float:
 	return [1.0, 0.38, 0.14, 0.06, 0.025, 0.01][h - 1] if h <= 6 else 0.0
 
 
+# Brass: a hump round 1300 Hz
 func _trumpet(h: int, hz: float) -> float:
 	var at := h * hz
 	return pow(h, -0.8) * (1.0 + 2.0 * exp(-pow((at - 1300.0) / 600.0, 2.0))) / (1.0 + pow(at / 3200.0, 4.0))
 
 
+# (and the rasp it starts with)
+func _trumpet_blare(h: int, hz: float) -> float:
+	var at := h * hz
+	return pow(h, -0.35) * (1.0 + 2.0 * exp(-pow((at - 2200.0) / 900.0, 2.0))) / (1.0 + pow(at / 5500.0, 4.0))
+
+
+# Reeds: odd harmonics, and a nasal hump round 2000 Hz
 func _reed(h: int, hz: float) -> float:
-	return pow(h, -0.75) * (1.0 if h % 2 == 1 else 0.6) / (1.0 + pow(h * hz / 3800.0, 3.0))
+	var at := h * hz
+	return pow(h, -0.6) * (1.0 if h % 2 == 1 else 0.35) * (1.0 + 1.5 * exp(-pow((at - 2000.0) / 600.0, 2.0))) / (1.0 + pow(at / 4200.0, 3.0))
 
 
+# Dark and round
 func _tuba(h: int, hz: float) -> float:
 	var at := h * hz
 	return pow(h, -1.3) * (1.0 + 1.5 * exp(-pow((at - 250.0) / 200.0, 2.0))) / (1.0 + pow(at / 1200.0, 2.0))
+
+
+# A synthesiser's sawtooth through a filter that rings at 1500 Hz
+func _keytar(h: int, hz: float) -> float:
+	var at := h * hz
+	return (1.0 / h) * (1.0 + 3.0 * exp(-pow((at - 1500.0) / 350.0, 2.0))) / (1.0 + pow(at / 4000.0, 4.0))
+
+
+# (the filter starts wide open and closes down: the "wow" at the front of each note)
+func _keytar_open(h: int, hz: float) -> float:
+	var at := h * hz
+	return (1.0 / h) * (1.0 + 3.5 * exp(-pow((at - 4200.0) / 800.0, 2.0))) / (1.0 + pow(at / 9000.0, 4.0))
+
+
+# Almost a pure tone
+func _theremin(h: int, _hz: float) -> float:
+	return [1.0, 0.13, 0.05, 0.012][h - 1] if h <= 4 else 0.0
+
+
+# A bowed string, with the three humps a viola's body gives it
+func _viola(h: int, hz: float) -> float:
+	var at := h * hz
+	var body := 0.45 + 1.6 * exp(-pow((at - 380.0) / 160.0, 2.0)) + 1.2 * exp(-pow((at - 1100.0) / 300.0, 2.0)) + 0.7 * exp(-pow((at - 2600.0) / 500.0, 2.0))
+	return (1.0 / h) * body / (1.0 + pow(at / 4500.0, 3.0))
 
 
 func _pitch(midi: int) -> float:
 	return 440.0 * pow(2.0, (midi - 69) / 12.0)
 
 
-# One wave of a tone whose harmonic h has the strength amp.call(h, hz)
+# One wave of a tone whose harmonic h has the strength amp.call(h, hz), as loud as it will go
 func _wave(hz: float, amp: Callable) -> PackedFloat32Array:
 	var table := PackedFloat32Array()
 	table.resize(TABLE)
@@ -65,11 +114,20 @@ func _wave(hz: float, amp: Callable) -> PackedFloat32Array:
 			continue
 		for i in TABLE:
 			table[i] += a * sin(TAU * h * i / TABLE)
+	var peak := _peak(table)
+	for i in TABLE:
+		table[i] /= peak
 	return table
 
 
-# `voices` are [times the pitch, waves more or fewer in the loop (a slow beat), loudness]
-func _held(file: String, midi: int, amp: Callable, attack: float, vibrato: float, breath: float, voices: Array) -> void:
+func _held(file: String, midi: int, amp: Callable, how: Dictionary) -> void:
+	var attack: float = how.get("attack", 0.04)
+	var scoop: float = how.get("scoop", 0.0)
+	var vibrato: float = how.get("vib", 0.0)
+	var rate: float = how.get("rate", 5)
+	var breath: float = how.get("breath", 0.0)
+	var bright: Callable = how.get("bright", Callable())
+	var voices: Array = how.get("voices", [[1, 0, 1.0]])
 	var hz := _pitch(midi)
 	var cycles := roundi(hz)
 	var loop := roundi(cycles * RATE / hz)
@@ -78,14 +136,26 @@ func _held(file: String, midi: int, amp: Callable, attack: float, vibrato: float
 	out.resize(pre + loop)
 	for voice: Array in voices:
 		var table := _wave(hz * voice[0], amp)
+		var sharp := _wave(hz * voice[0], bright) if bright.is_valid() else table
 		var waves: float = cycles * voice[0] + voice[1]
-		var depth := vibrato * hz / (TAU * 5.0)
+		var depth := vibrato * hz / (TAU * rate)
 		var gain: float = voice[2]
+		# Where in its wave it is through the attack, worked back from where the loop begins,
+		# so that a note that slides in arrives exactly on it
+		var before := PackedFloat32Array()
+		before.resize(pre + 1)
+		for i in range(pre - 1, -1, -1):
+			var left := 1.0 - float(i) / pre
+			before[i] = before[i + 1] - waves / loop * pow(2.0, scoop * left * left / 12.0)
 		for i in pre + loop:
 			var u := float(i - pre) / loop
-			var at := fposmod(waves * u + depth * sin(TAU * 5.0 * u), 1.0) * TABLE
+			var phase := before[i] if i < pre else waves * u + depth * sin(TAU * rate * u)
+			var at := fposmod(phase, 1.0) * TABLE
 			var k := int(at) % TABLE
-			out[i] += gain * lerpf(table[k], table[(k + 1) % TABLE], at - int(at))
+			var v := lerpf(table[k], table[(k + 1) % TABLE], at - int(at))
+			if i < pre and bright.is_valid():
+				v = lerpf(lerpf(sharp[k], sharp[(k + 1) % TABLE], at - int(at)), v, float(i) / pre)
+			out[i] += gain * v
 	var peak := _peak(out)
 	var hiss := 0.0
 	for i in pre + loop:

@@ -4,7 +4,6 @@ extends Node
 ## is the nearest sample played faster or slower.
 
 const VOICES := 28
-const RELEASE := 0.09
 
 var samples: Array[Dictionary] = []   # for each instrument, the note a sample is of -> the sample
 var drums: Array[AudioStreamWAV] = []
@@ -30,7 +29,7 @@ func _ready() -> void:
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
-		voices.append({"player": p, "id": 0, "held": false, "fade": null})
+		voices.append({"player": p, "id": 0, "held": false, "release": 0.09, "fade": null})
 
 
 # Starts a note and returns what to stop it by. For the drums `b` is which drum and `n` how far
@@ -57,6 +56,7 @@ func play(inst: int, b: int, n: int, loud := 1.0) -> int:
 	p.play()
 	v.id = next_id
 	v.held = kit.held
+	v.release = kit.get("release", 0.09)
 	next_id += 1
 	return v.id
 
@@ -67,7 +67,7 @@ func stop(id: int) -> void:
 			var p: AudioStreamPlayer = v.player
 			v.id = 0
 			v.fade = create_tween()
-			v.fade.tween_property(p, "volume_db", -60.0, RELEASE)
+			v.fade.tween_property(p, "volume_db", -60.0, v.release)
 			v.fade.tween_callback(p.stop)
 			return
 

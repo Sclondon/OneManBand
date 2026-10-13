@@ -372,12 +372,14 @@ def build_bandsman():
     tr.ball((0, -0.13, 0), (0.07, 0.045, 0.045), BRASS, BRASS_D, seg=8, rings=4)
     bands = ["#4fb0ff", "#58d68d", "#f8ca22", "#ff9a3d", "#ff6b7c"]
     for i in range(5):
-        side = (i - 2) * 0.4
+        # (fanned wide, and every other one lifted, so that no two mouths touch)
+        side = (i - 2) * 0.58
+        lift = 0.2 if i % 2 == 1 else 0.0
         base = Vector((math.sin(side) * 0.05, -0.14, 0.0))
-        out = Vector((math.sin(side), -math.cos(side) * 0.9, 0.12)).normalized()
-        up = Vector((math.sin(side) * 0.9, -math.cos(side) * 0.75, 0.38)).normalized()
-        long = 0.4 - i * 0.045
-        mouth = 0.115 - i * 0.014
+        out = Vector((math.sin(side), -math.cos(side) * 0.9, 0.12 + lift)).normalized()
+        up = Vector((math.sin(side) * 0.9, -math.cos(side) * 0.75, 0.38 + lift)).normalized()
+        long = 0.44 - i * 0.035
+        mouth = 0.085 - i * 0.008
         elbow = base + out * long * 0.55
         end = elbow + up * long * 0.45
         horn = Part("horn_%d" % i, tr, tuple(base))
@@ -414,7 +416,7 @@ def build_bandsman():
         ab.box((x, 0, 0), (1 / 6.0, 0.15, 0.4), DARK)
         ab.box((x, 0, 0), (1 / 15.0, 0.19, 0.45), CREAM)
 
-    # A big guitar, with a gramophone horn let into its side
+    # A big guitar
     gt = Part("guitar")
     gt.cyl((0, -0.05, 0), (0, 0.05, 0), 0.25, 0.25, WOOD, BROWN, seg=10)
     gt.cyl((0.27, -0.05, 0), (0.27, 0.05, 0), 0.18, 0.18, WOOD, BROWN, seg=10)
@@ -428,9 +430,57 @@ def build_bandsman():
         gt.ball((1.04 + (i % 2) * 0.07, -0.04, 0.065 if i < 2 else -0.065), 0.02, GOLD, seg=4, rings=3)
     gt.box((-0.12, -0.066, 0), (0.03, 0.016, 0.14), BROWN_D)
     gt.box((0.48, -0.068, 0), (1.2, 0.005, 0.04), CREAM)
-    gt.horn((-0.1, -0.05, -0.14), (-0.27, -0.25, -0.33), 0.035, 0.16, BRASS, GOLD, seg=8)
 
     gt.resize(0.8)
+
+    # A keytar: a wedge of a synthesiser on a strap, keys down the front, the neck for the other hand
+    kt = Part("keytar")
+    kt.box((0.0, 0, 0.0), (0.5, 0.06, 0.2), "#e83fbf", "#8a1f78", rot=(0, 0.12, 0))
+    kt.box((-0.2, 0, 0.11), (0.2, 0.06, 0.1), "#e83fbf", "#8a1f78", rot=(0, -0.5, 0))
+    kt.box((0.02, -0.036, 0.0), (0.42, 0.014, 0.11), WHITE, rot=(0, 0.12, 0))
+    for i in range(9):
+        x = -0.16 + i * 0.045
+        kt.box((x, -0.046, 0.022 - x * 0.12), (0.016, 0.01, 0.06), DARK, rot=(0, 0.12, 0))
+    kt.box((0.44, -0.005, -0.045), (0.4, 0.04, 0.055), DARK, rot=(0, 0.12, 0))
+    kt.box((0.66, -0.005, -0.075), (0.08, 0.045, 0.08), "#e83fbf", rot=(0, 0.12, 0))
+    for i in range(3):
+        kt.ball((-0.2 + i * 0.05, -0.036, 0.085), 0.016, GOLD, seg=5, rings=3)
+    kt.cyl((-0.25, 0, -0.06), (-0.4, 0, -0.16), 0.03, 0.0, "#ffe14a", seg=4)
+
+    # A theremin: a box of valves on a tray, a rod to play the note on and a loop for how loud
+    th = Part("theremin")
+    th.box((0, 0, 0), (0.38, 0.2, 0.13), WOOD, BROWN)
+    th.box((0, -0.101, 0), (0.3, 0.006, 0.08), BROWN_D)
+    for x in (-0.08, 0.0, 0.08):
+        th.ball((x, -0.106, 0.0), 0.022, GOLD, GOLD_D, seg=5, rings=3)
+    th.cyl((0.2, 0, 0.065), (0.2, 0, 0.62), 0.009, 0.007, WHITE, seg=5)
+    th.ball((0.2, 0, 0.63), 0.022, WHITE, seg=5, rings=3)
+    th.pipe([(-0.19, 0, 0.03), (-0.3, 0.07, 0.03), (-0.4, 0, 0.03), (-0.3, -0.07, 0.03), (-0.19, 0, 0.03)],
+            0.009, BRASS_D, BRASS, seg=4)
+    for x in (-0.07, 0.05):
+        th.cyl((x, 0.03, 0.065), (x, 0.03, 0.16), 0.03, 0.022, "#ffe9a8", LAMP, seg=6)
+        th.ball((x, 0.03, 0.165), 0.024, LAMP, seg=5, rings=3)
+
+    # A viola, played under the chin, and its bow
+    va = Part("viola")
+    va.cyl((0, -0.028, 0), (0, 0.028, 0), 0.125, 0.125, "#a4521f", BROWN_D, seg=10)
+    va.cyl((0.17, -0.028, 0), (0.17, 0.028, 0), 0.1, 0.1, "#a4521f", BROWN_D, seg=10)
+    va.cyl((0, -0.034, 0), (0, -0.028, 0), 0.114, 0.114, "#c8743a", seg=10)
+    va.cyl((0.17, -0.034, 0), (0.17, -0.028, 0), 0.09, 0.09, "#c8743a", seg=10)
+    va.box((0.38, -0.02, 0), (0.26, 0.026, 0.034), DARK)
+    va.ball((0.53, -0.02, 0), 0.034, BROWN_D, seg=6, rings=4)
+    for s in (1, -1):
+        va.ball((0.5, -0.02, 0.035 * s), 0.014, DARK, seg=4, rings=3)
+        va.box((0.08, -0.037, 0.055 * s), (0.07, 0.004, 0.012), DARK, rot=(0, 0.25 * s, 0))
+    va.box((0.2, -0.04, 0), (0.56, 0.004, 0.022), CREAM)
+    va.box((-0.02, -0.043, 0), (0.014, 0.014, 0.06), "#e8c890")
+    va.ball((-0.1, -0.036, 0.06), (0.05, 0.012, 0.04), DARK, seg=6, rings=3)
+
+    bw = Part("bow")
+    bw.cyl((0, 0.06, 0), (0, -0.56, 0), 0.009, 0.006, BROWN_D, BROWN, seg=5)
+    bw.box((0, -0.25, -0.022), (0.014, 0.58, 0.004), WHITE)
+    bw.box((0, 0.03, -0.012), (0.02, 0.05, 0.026), DARK)
+    bw.box((0, -0.55, -0.012), (0.012, 0.02, 0.024), BROWN_D)
 
     hb = Part("bell_hand")
     hb.cyl((0, 0.06, 0), (0, -0.1, 0), 0.02, 0.02, BROWN, seg=5)

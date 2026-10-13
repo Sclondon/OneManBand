@@ -21,6 +21,9 @@ const REACH := [
 	[Vector3(0.13, 0.27, 0.23), Vector3(-0.03, 0.44, 0.23)],
 	[Vector3(0.34, 0.3, 0.28), null],
 	[Vector3(0.18, 0.2, 0.38), null],
+	[Vector3(0.38, 0.24, 0.27), Vector3(-0.06, 0.1, 0.32)],
+	[Vector3(0.31, 0.2, 0.38), Vector3(-0.3, 0.2, 0.38)],
+	[Vector3(0.37, 0.5, 0.4), Vector3(-0.12, 0.5, 0.3)],
 ]
 
 var stage: Stage
@@ -47,6 +50,8 @@ var stare := 0.0
 var time := 0.0
 var turn := 0
 var hips_at := Vector3.ZERO
+var last_pad := 0
+var bowing := 0.0
 
 
 func _ready() -> void:
@@ -81,6 +86,12 @@ func _ready() -> void:
 	_carry(Kit.TUBA, p.tuba_pipe, p.tuba_pipe.transform, null)
 	_carry(Kit.DRUMS, p.snare, Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0.0, -0.02, 0.39)),
 			null)
+	_carry(Kit.KEYTAR, p.keytar, Transform3D(Basis(Vector3.BACK, 0.3), Vector3(-0.12, 0.08, 0.24)), null)
+	_carry(Kit.THEREMIN, p.theremin, Transform3D(Basis(Vector3.RIGHT, 0.15), Vector3(0.0, 0.02, 0.36)), null)
+	# (the viola lies face up on his left shoulder, its neck out in front of him)
+	_carry(Kit.VIOLA, p.viola, Transform3D(Basis(Vector3.UP, -0.9) * Basis(Vector3.RIGHT, -PI / 2.0), Vector3(0.13, 0.5, 0.1)), null)
+	_give(p.bow, p.hand_R)
+	p.bow.position = Vector3(0.0, -0.05, 0.0)
 	# Two of each thing that takes a hand apiece
 	for piece: String in ["bell_hand", "stick"]:
 		var other: Node3D = p[piece].duplicate()
@@ -102,6 +113,7 @@ func choose(which: int, at_once := false) -> void:
 	for side: String in ["L", "R"]:
 		p["bell_hand_" + side].visible = inst == Kit.BELLS
 		p["stick_" + side].visible = inst == Kit.DRUMS
+	p.bow.visible = inst == Kit.VIOLA
 	for item in carried:
 		var mine: bool = item.inst == inst
 		item.node.visible = mine or item.stow != null
@@ -121,7 +133,10 @@ func on_note(which: int, b: int, live: bool) -> void:
 		stomp = 1.0
 	if which != inst:
 		return
+	last_pad = b
 	match which:
+		Kit.KEYTAR:
+			strike[1] = 1.0
 		Kit.ACCORDION:
 			half_to = 0.2 if half_to < 0.14 else 0.08
 		Kit.GUITAR:
@@ -188,6 +203,11 @@ func _process(delta: float) -> void:
 		node.scale = Vector3.ONE
 		node.transform = node.transform.interpolate_with(goal, ease)
 		node.scale = size
+	if inst == Kit.VIOLA:
+		# The bow lies across the strings whatever the arm is doing, and saws while a note is held
+		if holding:
+			bowing += delta * 9.0
+		p.bow.global_basis = global_basis * Basis(Vector3.UP, 1.35) * Basis(Vector3.RIGHT, -0.2)
 	if inst == Kit.BELLS:
 		# Handbells stay upright whatever the arm is doing, and tip as they ring
 		for h in 2:
@@ -235,6 +255,19 @@ func _hand_goal(h: int) -> Vector3:
 			at += Vector3(0.0, -0.12, 0.05) * strike[h] + Vector3(0.0, 0.02 * sin(time * 2.0 + h), 0.0)
 		Kit.DRUMS:
 			at += Vector3(0.0, 0.07 - 0.1 * strike[h], 0.0)
+		Kit.KEYTAR:
+			# The right hand walks along the keys to the one it is playing
+			if h == 1:
+				at += Vector3(-0.08 + 0.045 * last_pad, -0.025 * strike[1], 0.0)
+		Kit.THEREMIN:
+			# One hand by the rod, higher for a higher note; the other floats over the loop
+			if h == 0:
+				at.y = 0.16 + 0.075 * last_pad + 0.012 * sin(time * 9.0)
+			else:
+				at.y += 0.04 * sin(time * 3.0)
+		Kit.VIOLA:
+			if h == 1:
+				at.x += 0.11 * sin(bowing)
 		Kit.TRUMPET:
 			# Wherever the trumpet is: one hand under it, one on the valves
 			at = p.trumpet.transform * (Vector3(0.05, -0.05, 0.1) if h == 0 else Vector3(-0.05, -0.04, 0.13))
@@ -263,6 +296,12 @@ func _piece(which: int, b: int) -> Node3D:
 			return p.tuba
 		Kit.BELLS:
 			return p.pack_bells
+		Kit.KEYTAR:
+			return p.keytar
+		Kit.THEREMIN:
+			return p.theremin
+		Kit.VIOLA:
+			return p.viola
 	return [p.pack_drum, p.snare, p.cym_top, p.pack_tom, p.cym_crash][posmod(b, 5)]
 
 
