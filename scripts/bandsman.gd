@@ -17,7 +17,7 @@ const REACH := [
 	[Vector3(-0.07, 0.56, 0.22), Vector3(-0.2, 0.555, 0.2)],
 	[Vector3(0.04, 0.555, 0.3), Vector3(-0.03, 0.6, 0.37)],
 	[Vector3(0.26, 0.14, 0.32), null],
-	[Vector3(0.47, 0.25, 0.28), Vector3(-0.1, -0.01, 0.35)],
+	[Vector3(0.36, 0.2, 0.27), Vector3(-0.1, 0.01, 0.33)],
 	[Vector3(0.13, 0.27, 0.23), Vector3(-0.03, 0.44, 0.23)],
 	[Vector3(0.34, 0.3, 0.28), null],
 	[Vector3(0.18, 0.2, 0.38), null],
@@ -79,7 +79,7 @@ func _ready() -> void:
 	_carry(Kit.GUITAR, p.guitar, Transform3D(Basis(Vector3.BACK, 0.38), Vector3(-0.16, 0.0, 0.26)),
 			Transform3D(Basis(Vector3.BACK, -1.15) * Basis(Vector3.UP, PI), Vector3(0.05, 0.3, -0.62)))
 	_carry(Kit.TUBA, p.tuba_pipe, p.tuba_pipe.transform, null)
-	_carry(Kit.DRUMS, p.snare, Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0.0, -0.03, 0.42)),
+	_carry(Kit.DRUMS, p.snare, Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0.0, -0.02, 0.39)),
 			Transform3D(Basis(Vector3.BACK, -PI / 2.0), Vector3(0.5, 0.05, -0.36)))
 	# Two of each thing that takes a hand apiece
 	for piece: String in ["bell_hand", "stick"]:
@@ -237,10 +237,10 @@ func _hand_goal(h: int) -> Vector3:
 			at += Vector3(0.0, 0.07 - 0.1 * strike[h], 0.0)
 		Kit.TRUMPET:
 			# Wherever the trumpet is: one hand under it, one on the valves
-			at = p.trumpet.transform * (Vector3(0.03, -0.045, 0.13) if h == 0 else Vector3(-0.025, 0.0, 0.23))
+			at = p.trumpet.transform * (Vector3(0.03, -0.04, 0.1) if h == 0 else Vector3(-0.025, 0.0, 0.17))
 		Kit.PICCOLO:
 			# Along the pipe, out to his right
-			at = p.piccolo.transform * (Vector3(-0.1, -0.03, 0.02) if h == 0 else Vector3(-0.27, -0.03, 0.02))
+			at = p.piccolo.transform * (Vector3(-0.085, -0.026, 0.02) if h == 0 else Vector3(-0.23, -0.026, 0.02))
 	return at
 
 

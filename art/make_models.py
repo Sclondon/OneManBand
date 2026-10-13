@@ -138,6 +138,10 @@ class Part:
         self._finish(res["verts"], c2 or c1, c1, c - h, c + h, flat=True)
         return self
 
+    # Makes all of it so many times the size, about its own origin
+    def resize(self, k):
+        bmesh.ops.scale(self.bm, vec=(k, k, k), verts=self.bm.verts)
+
     def make(self, scene):
         bmesh.ops.translate(self.bm, verts=self.bm.verts, vec=-self.pivot)
         mesh = bpy.data.meshes.new(self.name)
@@ -278,7 +282,7 @@ def build_bandsman():
     for z in (1.02, 2.08):
         pack.cyl((-0.22, 0.17, z), (0.22, 0.17, z), 0.015, 0.015, BROWN, seg=5)
     pack.cyl((-0.2, 0.17, 2.1), (-0.2, 0.17, 2.3), 0.01, 0.01, BROWN_D, seg=4)
-    pack.cyl((-0.2, 0.17, 2.225), (-0.2, 0.17, 2.26), 0.02, 0.27, BRASS_D, BRASS, seg=10)
+    pack.cyl((-0.2, 0.17, 2.225), (-0.2, 0.17, 2.26), 0.02, 0.21, BRASS_D, BRASS, seg=10)
     pack.pipe([(-0.2, 0.17, 1.7), (-0.42, 0.19, 1.86), (-0.56, 0.2, 2.02)], 0.012, BROWN_D, seg=4)
 
     big = Part("pack_drum", pack, (0, 0.37, 1.25))
@@ -291,10 +295,10 @@ def build_bandsman():
 
     # Everything on the rig is bigger than it has any business being
     hat = Part("cym_top", pack, (-0.2, 0.17, 2.285))
-    hat.cyl((-0.2, 0.17, 2.27), (-0.2, 0.17, 2.31), 0.27, 0.02, BRASS, BRASS_D, seg=10)
+    hat.cyl((-0.2, 0.17, 2.27), (-0.2, 0.17, 2.305), 0.21, 0.02, BRASS, BRASS_D, seg=10)
 
     crash = Part("cym_crash", pack, (-0.56, 0.2, 2.03))
-    crash.cyl((-0.555, 0.2, 2.03), (-0.585, 0.185, 2.08), 0.36, 0.03, BRASS, BRASS_D, seg=10)
+    crash.cyl((-0.555, 0.2, 2.03), (-0.58, 0.187, 2.072), 0.28, 0.03, BRASS, BRASS_D, seg=10)
 
     chimes = Part("pack_bells", pack, (0, 0.17, 2.08))
     for x in (-0.15, -0.05, 0.05, 0.15):
@@ -306,11 +310,11 @@ def build_bandsman():
     tuba.pipe([(0.42, 0.3, 0.98), (0.47, 0.42, 1.2), (0.42, 0.3, 1.45), (0.36, 0.22, 1.2),
                (0.3, 0.24, 1.0)], 0.045, BRASS_D, BRASS)
     tuba.cyl((0.42, 0.3, 1.45), (0.36, 0.2, 1.74), 0.055, 0.075, BRASS_D, BRASS, seg=8)
-    tuba.cyl((0.36, 0.2, 1.74), (0.56, -0.05, 2.3), 0.075, 0.46, BRASS, GOLD, seg=12)
-    tuba.cyl((0.536, -0.02, 2.233), (0.558, -0.0475, 2.294), 0.33, 0.4, BRASS_D, DARK, seg=12)
+    tuba.cyl((0.36, 0.2, 1.74), (0.5, 0.0, 2.2), 0.075, 0.34, BRASS, GOLD, seg=12)
+    tuba.cyl((0.483, 0.024, 2.145), (0.4986, 0.002, 2.195), 0.24, 0.29, BRASS_D, DARK, seg=12)
     # (and a little one growing out of its side, for the high notes)
     tuba.cyl((0.39, 0.25, 1.6), (0.62, 0.3, 1.78), 0.03, 0.035, BRASS_D, BRASS, seg=6)
-    tuba.cyl((0.62, 0.3, 1.78), (0.78, 0.26, 1.98), 0.035, 0.15, BRASS, GOLD, seg=8)
+    tuba.cyl((0.62, 0.3, 1.78), (0.74, 0.27, 1.93), 0.035, 0.11, BRASS, GOLD, seg=8)
 
     # The tuba's mouth pipe only comes round to the front while he is playing it
     lead = Part("tuba_pipe", torso, (0, 0, 1.2))
@@ -321,7 +325,7 @@ def build_bandsman():
     # What he holds. Each is built about its own origin, where the game takes hold of it, and
     # each is far too big, or has grown something it should not have.
 
-    # A piccolo as long as his arm, played sideways: the lip hole is at the origin, the pipe
+    # A long piccolo, played sideways: the lip hole is at the origin, the pipe
     # runs out to his right, and the far end curls up into a horn
     pc = Part("piccolo")
     pc.cyl((0.06, 0, 0), (-0.5, 0, 0), 0.022, 0.02, DARK, seg=6)
@@ -335,6 +339,8 @@ def build_bandsman():
     pc.cyl((-0.607, 0, 0.324), (-0.6, 0, 0.341), 0.085, 0.1, BRASS_D, DARK, seg=8)
     for y in (-0.012, 0.012):
         pc.cyl((-0.3, y, -0.02), (-0.3 - y * 3, y * 2, -0.22), 0.022, 0.0, RED, RED_D, seg=4)
+
+    pc.resize(0.85)
 
     # A trumpet with three bells
     tr = Part("trumpet")
@@ -351,6 +357,8 @@ def build_bandsman():
     for y in (-0.19, -0.24, -0.29):
         tr.cyl((0, y, -0.085), (0, y, 0.07), 0.019, 0.019, BRASS_D, BRASS, seg=5)
         tr.cyl((0, y, 0.07), (0, y, 0.095), 0.012, 0.024, CREAM, seg=5)
+
+    tr.resize(0.72)
 
     # An accordion with organ pipes coming out of the top
     al = Part("acc_L")
@@ -380,7 +388,7 @@ def build_bandsman():
         ab.box((x, 0, 0), (1 / 6.0, 0.15, 0.4), DARK)
         ab.box((x, 0, 0), (1 / 15.0, 0.19, 0.45), CREAM)
 
-    # A guitar the size of a cello, with a gramophone horn let into its side
+    # A big guitar, with a gramophone horn let into its side
     gt = Part("guitar")
     gt.cyl((0, -0.05, 0), (0, 0.05, 0), 0.25, 0.25, WOOD, BROWN, seg=10)
     gt.cyl((0.27, -0.05, 0), (0.27, 0.05, 0), 0.18, 0.18, WOOD, BROWN, seg=10)
@@ -397,11 +405,15 @@ def build_bandsman():
     gt.cyl((-0.1, -0.05, -0.14), (-0.27, -0.25, -0.33), 0.035, 0.16, BRASS, GOLD, seg=8)
     gt.cyl((-0.257, -0.234, -0.315), (-0.27, -0.251, -0.331), 0.11, 0.13, BRASS_D, DARK, seg=8)
 
+    gt.resize(0.8)
+
     hb = Part("bell_hand")
     hb.cyl((0, 0.06, 0), (0, -0.1, 0), 0.02, 0.02, BROWN, seg=5)
     hb.cyl((0, -0.1, 0), (0, -0.32, 0), 0.035, 0.15, GOLD, GOLD_D, seg=8)
     hb.cyl((0, -0.32, 0), (0, -0.345, 0), 0.15, 0.17, GOLD, seg=8)
     hb.ball((0, -0.37, 0), 0.042, GOLD_D, seg=5, rings=3)
+
+    hb.resize(0.75)
 
     # Mallets with heads like toffee apples
     st = Part("stick")
@@ -409,7 +421,8 @@ def build_bandsman():
     st.ball((0, -0.39, 0), 0.045, RED, RED_D, seg=6, rings=4)
 
     sn = Part("snare")
-    drum(sn, (0, 0, -0.08), (0, 0, 0.08), 0.24, BLUE, seg=10)
+    drum(sn, (0, 0, -0.07), (0, 0, 0.07), 0.2, BLUE, seg=10)
+    st.resize(0.85)
 
     write("bandsman")
 
