@@ -73,14 +73,14 @@ func _ready() -> void:
 	# In the hands: [piece, where it is held, where it hangs otherwise (null to put it away)]
 	_carry(Kit.PICCOLO, p.piccolo, Transform3D(Basis(Vector3.BACK, 0.12), Vector3(0.0, 0.575, 0.2)),
 			Transform3D(Basis(Vector3.BACK, 1.2), Vector3(0.21, 0.12, 0.12)))
-	_carry(Kit.TRUMPET, p.trumpet, Transform3D(Basis(Vector3.UP, -0.5) * Basis(Vector3.RIGHT, 0.28), Vector3(0.0, 0.605, 0.17)),
+	_carry(Kit.TRUMPET, p.trumpet, Transform3D(Basis(Vector3.UP, -0.45) * Basis(Vector3.RIGHT, 0.3), Vector3(0.0, 0.6, 0.17)),
 			Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3(-0.31, 0.5, -0.17)))
 	_carry(Kit.ACCORDION, acc, Transform3D(Basis(), Vector3(0.0, 0.14, 0.32)), null)
 	_carry(Kit.GUITAR, p.guitar, Transform3D(Basis(Vector3.BACK, 0.38), Vector3(-0.16, 0.0, 0.26)),
-			Transform3D(Basis(Vector3.BACK, -1.15) * Basis(Vector3.UP, PI), Vector3(0.05, 0.3, -0.62)))
+			Transform3D(Basis(Vector3.BACK, -1.15) * Basis(Vector3.UP, PI), Vector3(0.05, 0.3, -0.7)))
 	_carry(Kit.TUBA, p.tuba_pipe, p.tuba_pipe.transform, null)
 	_carry(Kit.DRUMS, p.snare, Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0.0, -0.02, 0.39)),
-			Transform3D(Basis(Vector3.BACK, -PI / 2.0), Vector3(0.5, 0.05, -0.36)))
+			null)
 	# Two of each thing that takes a hand apiece
 	for piece: String in ["bell_hand", "stick"]:
 		var other: Node3D = p[piece].duplicate()
@@ -210,7 +210,7 @@ func _process(delta: float) -> void:
 		if node == p.cym_crash:
 			node.rotation.x = 0.45 * k * sin(time * 34.0)
 		elif node == p.cym_top:
-			node.position.y = 1.085 - 0.03 * k
+			node.position.y = 1.085 - 0.04 * k
 		elif node == p.pack_bells:
 			node.rotation.x = 0.6 * k * sin(time * 22.0)
 		else:
@@ -237,7 +237,7 @@ func _hand_goal(h: int) -> Vector3:
 			at += Vector3(0.0, 0.07 - 0.1 * strike[h], 0.0)
 		Kit.TRUMPET:
 			# Wherever the trumpet is: one hand under it, one on the valves
-			at = p.trumpet.transform * (Vector3(0.03, -0.04, 0.1) if h == 0 else Vector3(-0.025, 0.0, 0.17))
+			at = p.trumpet.transform * (Vector3(0.05, -0.05, 0.1) if h == 0 else Vector3(-0.05, -0.04, 0.13))
 		Kit.PICCOLO:
 			# Along the pipe, out to his right
 			at = p.piccolo.transform * (Vector3(-0.085, -0.026, 0.02) if h == 0 else Vector3(-0.23, -0.026, 0.02))
@@ -254,7 +254,7 @@ func _piece(which: int, b: int) -> Node3D:
 		Kit.PICCOLO:
 			return p.piccolo
 		Kit.TRUMPET:
-			return p.trumpet
+			return p["horn_%d" % posmod(b, 5)]
 		Kit.ACCORDION:
 			return acc if inst == which else p.torso
 		Kit.GUITAR:

@@ -15,9 +15,9 @@ const KEYS := {
 }
 const FOV := 38.0
 # What the camera has to keep in the picture: the middle of him, and how tall and wide he is
-const SUBJECT := Vector3(0.0, 1.5, 0.0)
-const TALL := 2.65
-const BROAD := 2.2
+const SUBJECT := Vector3(0.0, 1.55, 0.0)
+const TALL := 2.95
+const BROAD := 2.5
 
 var save_path := "user://one_man_band.json"
 var show_help_first := true

@@ -99,15 +99,39 @@ class Part:
                 l[self.col] = mix(c1, c2, t)
 
     # A tube or cone from p1 (radius r1) to p2 (radius r2); `flat` squashes it front to back
-    def cyl(self, p1, p2, r1, r2, c1, c2=None, seg=6, flat=1.0):
+    # With `caps` off it is an open pipe, and `facing` says which way its skin looks:
+    # 1 out from its middle, -1 in toward it.
+    def cyl(self, p1, p2, r1, r2, c1, c2=None, seg=6, flat=1.0, caps=True, facing=1):
         p1 = Vector(p1)
         p2 = Vector(p2)
         d = p2 - p1
         rot = Vector((0, 0, 1)).rotation_difference(d.normalized()).to_matrix().to_4x4()
         m = Matrix.Translation((p1 + p2) / 2) @ rot @ Matrix.Diagonal((1, flat, 1, 1))
-        res = bmesh.ops.create_cone(self.bm, cap_ends=True, cap_tris=False, segments=seg,
+        res = bmesh.ops.create_cone(self.bm, cap_ends=caps, cap_tris=False, segments=seg,
                                     radius1=r1, radius2=r2, depth=d.length, matrix=m)
         self._finish(res["verts"], c1, c2, p1, p2, d.normalized())
+        if not caps:
+            axis = d.normalized()
+            faces = set()
+            for v in res["verts"]:
+                faces.update(v.link_faces)
+            for f in faces:
+                mid = f.calc_center_median() - p1
+                if f.normal.dot(mid - axis * mid.dot(axis)) * facing < 0:
+                    f.normal_flip()
+        return self
+
+    # The bell of a horn, hollow: an open cone from the throat at p1 (radius r1) out to the
+    # mouth at p2 (radius r2), a darker cone inside it that goes black toward the throat, and
+    # a lip joining the two round the mouth
+    def horn(self, p1, p2, r1, r2, c1, c2=None, seg=8, inside="#5e3f10", thick=0.9):
+        p1 = Vector(p1)
+        p2 = Vector(p2)
+        d = (p2 - p1).normalized()
+        self.cyl(p1, p2, r1, r2, c1, c2, seg=seg, caps=False)
+        self.cyl(p1, p2, r1 * 0.6, r2 * thick, "#120b10", inside, seg=seg, caps=False, facing=-1)
+        self.cyl(p2 - d * 0.0005, p2 + d * 0.0005, r2 * thick, r2, c2 or c1, seg=seg, caps=False)
+        self.cyl(p1 - d * 0.001, p1 + d * 0.001, r1 * 0.6, r1 * 0.6, "#120b10", seg=seg)
         return self
 
     # A line of tubes through the points
@@ -285,15 +309,14 @@ def build_bandsman():
     pack.cyl((-0.2, 0.17, 2.225), (-0.2, 0.17, 2.26), 0.02, 0.21, BRASS_D, BRASS, seg=10)
     pack.pipe([(-0.2, 0.17, 1.7), (-0.42, 0.19, 1.86), (-0.56, 0.2, 2.02)], 0.012, BROWN_D, seg=4)
 
-    big = Part("pack_drum", pack, (0, 0.37, 1.25))
-    drum(big, (0, 0.2, 1.25), (0, 0.54, 1.25), 0.37, RED, seg=12)
-    big.cyl((0, 0.549, 1.25), (0, 0.554, 1.25), 0.2, 0.2, GOLD, seg=5)
-    big.cyl((0, 0.554, 1.25), (0, 0.558, 1.25), 0.11, 0.11, RED_D, seg=5)
+    big = Part("pack_drum", pack, (0, 0.4, 1.3))
+    drum(big, (0, 0.2, 1.3), (0, 0.6, 1.3), 0.5, RED, seg=14)
+    big.cyl((0, 0.609, 1.3), (0, 0.615, 1.3), 0.28, 0.28, GOLD, seg=5)
+    big.cyl((0, 0.615, 1.3), (0, 0.62, 1.3), 0.15, 0.15, RED_D, seg=5)
 
-    tom = Part("pack_tom", pack, (-0.37, 0.36, 1.6))
-    drum(tom, (-0.33, 0.36, 1.53), (-0.41, 0.36, 1.67), 0.125, BLUE, seg=8)
+    tom = Part("pack_tom", pack, (-0.42, 0.38, 1.73))
+    drum(tom, (-0.38, 0.38, 1.66), (-0.46, 0.38, 1.8), 0.125, BLUE, seg=8)
 
-    # Everything on the rig is bigger than it has any business being
     hat = Part("cym_top", pack, (-0.2, 0.17, 2.285))
     hat.cyl((-0.2, 0.17, 2.27), (-0.2, 0.17, 2.305), 0.21, 0.02, BRASS, BRASS_D, seg=10)
 
@@ -306,19 +329,18 @@ def build_bandsman():
         chimes.cyl((x, 0.17, 2.02), (x, 0.17, 1.9), 0.016, 0.07, GOLD, GOLD_D, seg=6)
         chimes.ball((x, 0.17, 1.885), 0.024, GOLD_D, seg=5, rings=3)
 
-    tuba = Part("tuba", pack, (0.36, 0.2, 1.72))
-    tuba.pipe([(0.42, 0.3, 0.98), (0.47, 0.42, 1.2), (0.42, 0.3, 1.45), (0.36, 0.22, 1.2),
-               (0.3, 0.24, 1.0)], 0.045, BRASS_D, BRASS)
-    tuba.cyl((0.42, 0.3, 1.45), (0.36, 0.2, 1.74), 0.055, 0.075, BRASS_D, BRASS, seg=8)
-    tuba.cyl((0.36, 0.2, 1.74), (0.5, 0.0, 2.2), 0.075, 0.34, BRASS, GOLD, seg=12)
-    tuba.cyl((0.483, 0.024, 2.145), (0.4986, 0.002, 2.195), 0.24, 0.29, BRASS_D, DARK, seg=12)
+    tuba = Part("tuba", pack, (0.52, 0.2, 1.8))
+    tuba.pipe([(0.62, 0.3, 0.98), (0.67, 0.42, 1.2), (0.62, 0.3, 1.45), (0.56, 0.22, 1.2),
+               (0.5, 0.24, 1.0)], 0.05, BRASS_D, BRASS)
+    tuba.cyl((0.62, 0.3, 1.45), (0.52, 0.2, 1.8), 0.06, 0.08, BRASS_D, BRASS, seg=8)
+    tuba.horn((0.52, 0.2, 1.8), (0.66, -0.05, 2.4), 0.08, 0.46, BRASS, GOLD, seg=12, thick=0.93)
     # (and a little one growing out of its side, for the high notes)
-    tuba.cyl((0.39, 0.25, 1.6), (0.62, 0.3, 1.78), 0.03, 0.035, BRASS_D, BRASS, seg=6)
-    tuba.cyl((0.62, 0.3, 1.78), (0.74, 0.27, 1.93), 0.035, 0.11, BRASS, GOLD, seg=8)
+    tuba.cyl((0.59, 0.25, 1.62), (0.8, 0.3, 1.78), 0.03, 0.035, BRASS_D, BRASS, seg=6)
+    tuba.horn((0.8, 0.3, 1.78), (0.92, 0.27, 1.93), 0.035, 0.11, BRASS, GOLD, seg=8)
 
     # The tuba's mouth pipe only comes round to the front while he is playing it
     lead = Part("tuba_pipe", torso, (0, 0, 1.2))
-    lead.pipe([(0.3, 0.2, 1.12), (0.31, -0.06, 1.08), (0.14, -0.2, 1.3), (0.02, -0.2, 1.55)],
+    lead.pipe([(0.5, 0.24, 1.02), (0.36, -0.06, 1.06), (0.14, -0.2, 1.3), (0.02, -0.2, 1.55)],
               0.016, BRASS_D, BRASS, seg=4)
     lead.cyl((0.02, -0.2, 1.55), (0.0, -0.17, 1.6), 0.012, 0.026, BRASS, seg=5)
 
@@ -335,30 +357,34 @@ def build_bandsman():
     for i in range(6):
         pc.ball((-0.12 - i * 0.06, -0.008, 0.021), 0.014, GOLD, seg=4, rings=3)
     pc.pipe([(-0.5, 0, 0), (-0.6, 0, 0.02), (-0.67, 0, 0.1), (-0.66, 0, 0.2)], 0.021, DARK, seg=5)
-    pc.cyl((-0.66, 0, 0.2), (-0.6, 0, 0.34), 0.025, 0.12, BRASS, GOLD, seg=8)
-    pc.cyl((-0.607, 0, 0.324), (-0.6, 0, 0.341), 0.085, 0.1, BRASS_D, DARK, seg=8)
+    pc.horn((-0.66, 0, 0.2), (-0.6, 0, 0.34), 0.025, 0.12, BRASS, GOLD, seg=8)
     for y in (-0.012, 0.012):
         pc.cyl((-0.3, y, -0.02), (-0.3 - y * 3, y * 2, -0.22), 0.022, 0.0, RED, RED_D, seg=4)
 
     pc.resize(0.85)
 
-    # A trumpet with three bells
+    # The trumpet is a bunch of five horns on one mouthpiece, a horn to each note: the lowest
+    # is the biggest, and each wears the colour of its button. They are separate pieces so
+    # that the one that sounds can jump.
     tr = Part("trumpet")
     tr.cyl((0, 0.0, 0), (0, -0.045, 0), 0.022, 0.009, GOLD, seg=5)
-    tr.cyl((0, -0.04, 0), (0, -0.5, 0), 0.013, 0.017, BRASS, seg=5)
-    tr.cyl((0, -0.5, 0), (0, -0.78, 0), 0.018, 0.2, BRASS, GOLD, seg=10)
-    tr.cyl((0, -0.78, 0), (0, -0.82, 0), 0.2, 0.28, GOLD, seg=10)
-    tr.cyl((0, -0.79, 0), (0, -0.815, 0), 0.15, 0.19, BRASS_D, DARK, seg=10)
-    for s in (1, -1):
-        tr.pipe([(0, -0.4, 0), (0.12 * s, -0.52, 0.07), (0.17 * s, -0.6, 0.11)], 0.012, BRASS_D, seg=4)
-        tr.cyl((0.17 * s, -0.6, 0.11), (0.27 * s, -0.75, 0.18), 0.014, 0.12, BRASS, GOLD, seg=8)
-        tr.cyl((0.262 * s, -0.738, 0.174), (0.27 * s, -0.752, 0.181), 0.08, 0.09, BRASS_D, DARK, seg=8)
-    tr.pipe([(0, -0.12, 0), (0, -0.12, -0.07), (0, -0.38, -0.07), (0, -0.38, 0)], 0.013, BRASS_D, seg=4)
-    for y in (-0.19, -0.24, -0.29):
-        tr.cyl((0, y, -0.085), (0, y, 0.07), 0.019, 0.019, BRASS_D, BRASS, seg=5)
-        tr.cyl((0, y, 0.07), (0, y, 0.095), 0.012, 0.024, CREAM, seg=5)
-
-    tr.resize(0.72)
+    tr.cyl((0, -0.04, 0), (0, -0.12, 0), 0.013, 0.02, BRASS, seg=5)
+    tr.ball((0, -0.13, 0), (0.07, 0.045, 0.045), BRASS, BRASS_D, seg=8, rings=4)
+    bands = ["#4fb0ff", "#58d68d", "#f8ca22", "#ff9a3d", "#ff6b7c"]
+    for i in range(5):
+        side = (i - 2) * 0.4
+        base = Vector((math.sin(side) * 0.05, -0.14, 0.0))
+        out = Vector((math.sin(side), -math.cos(side) * 0.9, 0.12)).normalized()
+        up = Vector((math.sin(side) * 0.9, -math.cos(side) * 0.75, 0.38)).normalized()
+        long = 0.4 - i * 0.045
+        mouth = 0.115 - i * 0.014
+        elbow = base + out * long * 0.55
+        end = elbow + up * long * 0.45
+        horn = Part("horn_%d" % i, tr, tuple(base))
+        horn.cyl(base, elbow, 0.014, 0.02, BRASS_D, BRASS, seg=5)
+        horn.ball(elbow, 0.021, BRASS, seg=5, rings=3)
+        horn.horn(elbow, end, 0.02, mouth, BRASS, GOLD, seg=8)
+        horn.cyl(end - up * 0.012, end + up * 0.004, mouth * 1.04, mouth * 1.1, bands[i], seg=8, caps=False)
 
     # An accordion with organ pipes coming out of the top
     al = Part("acc_L")
@@ -402,16 +428,15 @@ def build_bandsman():
         gt.ball((1.04 + (i % 2) * 0.07, -0.04, 0.065 if i < 2 else -0.065), 0.02, GOLD, seg=4, rings=3)
     gt.box((-0.12, -0.066, 0), (0.03, 0.016, 0.14), BROWN_D)
     gt.box((0.48, -0.068, 0), (1.2, 0.005, 0.04), CREAM)
-    gt.cyl((-0.1, -0.05, -0.14), (-0.27, -0.25, -0.33), 0.035, 0.16, BRASS, GOLD, seg=8)
-    gt.cyl((-0.257, -0.234, -0.315), (-0.27, -0.251, -0.331), 0.11, 0.13, BRASS_D, DARK, seg=8)
+    gt.horn((-0.1, -0.05, -0.14), (-0.27, -0.25, -0.33), 0.035, 0.16, BRASS, GOLD, seg=8)
 
     gt.resize(0.8)
 
     hb = Part("bell_hand")
     hb.cyl((0, 0.06, 0), (0, -0.1, 0), 0.02, 0.02, BROWN, seg=5)
-    hb.cyl((0, -0.1, 0), (0, -0.32, 0), 0.035, 0.15, GOLD, GOLD_D, seg=8)
-    hb.cyl((0, -0.32, 0), (0, -0.345, 0), 0.15, 0.17, GOLD, seg=8)
-    hb.ball((0, -0.37, 0), 0.042, GOLD_D, seg=5, rings=3)
+    hb.horn((0, -0.1, 0), (0, -0.33, 0), 0.035, 0.16, GOLD, GOLD_D, seg=8)
+    hb.cyl((0, -0.12, 0), (0, -0.3, 0), 0.006, 0.006, GOLD_D, seg=4)
+    hb.ball((0, -0.31, 0), 0.042, GOLD_D, seg=5, rings=3)
 
     hb.resize(0.75)
 
