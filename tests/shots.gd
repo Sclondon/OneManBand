@@ -102,6 +102,18 @@ func _run() -> void:
 		await _frames(120)
 		await _shot("tag")
 		main.press("play")
+	# (only when asked for by name: each sample song played with the controls put away, a
+	# picture in each of the four figures the little folk dance)
+	if only.has("dance"):
+		for k in Band.SAMPLES.size():
+			main.load_demo(k)
+			main.press("hide")
+			for f in 4:
+				var wait := 16.0 * 60.0 / main.looper.bpm
+				await create_timer(wait * (0.6 if f == 0 else 1.0)).timeout
+				await _shot("dance_%d_%d" % [k, f])
+			main.press("play")
+			await _frames(40)
 	if _wanted("help"):
 		main.hud.help_open = true
 		await _frames(3)

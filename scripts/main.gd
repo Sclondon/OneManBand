@@ -10,14 +10,15 @@ extends Node
 const KEYS := {
 	KEY_A: "n0", KEY_S: "n1", KEY_D: "n2", KEY_F: "n3", KEY_G: "n4",
 	KEY_Q: "down", KEY_E: "up", KEY_C: "flat", KEY_V: "sharp",
-	KEY_SPACE: "play", KEY_R: "rec", KEY_Z: "undo", KEY_M: "metro", KEY_ESCAPE: "close",
+	KEY_SPACE: "play", KEY_R: "rec", KEY_Z: "undo", KEY_M: "metro", KEY_H: "hide", KEY_ESCAPE: "close",
 }
 const NUMBER_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUAL]
 const FOV := 38.0
 # What the camera has to keep in the picture: the middle of him, and how tall and wide he is
 const SUBJECT := Vector3(0.0, 1.55, 0.0)
-const TALL := 2.5
-const BROAD := 2.5
+const TALL := 2.75
+const BROAD := 2.75
+const SAMPLES := ["The House Band", "The Wicked March", "The Hollow Hymn"]
 
 var save_path := "user://one_man_band.json"
 var show_help_first := true
@@ -34,6 +35,7 @@ var camera: Camera3D
 var inst := 0
 var key := 0
 var tuning := 0
+var sample := 0           # which sample song the menu loads next
 var mods := {"flat": false, "sharp": false, "down": false, "up": false}
 const OPPOSITE := {"flat": "sharp", "sharp": "flat", "down": "up", "up": "down"}
 var bend := 0.0           # semitones the stick has everything bent by, this instant
@@ -121,7 +123,7 @@ func _fit() -> void:
 # and to one side so that he sits in the middle of that part
 func _aim() -> void:
 	var s := hud.size_now
-	var clear := hud.free_rect
+	var clear := hud.view_rect
 	var half := tan(deg_to_rad(FOV) / 2.0)
 	var away := maxf(TALL / (2.0 * half * clear.size.y / s.y), BROAD / (2.0 * half * (s.x / s.y) * clear.size.x / s.x))
 	var basis := Basis(Vector3.UP, 0.1 * sin(time * 0.23) + 0.12) * Basis(Vector3.RIGHT, -0.08)
@@ -142,6 +144,9 @@ func _process(delta: float) -> void:
 		synth.bend(held[id][0], bend)
 	crowd.phase = man.phase
 	crowd.lively = looper.playing or man.energy > 0.15
+	# (with the loop going, the little folk dance it: crowd.gd counts the beats)
+	crowd.playing = looper.playing
+	crowd.tempo = looper.bpm
 	# The choir is the little folk themselves: they line up in front of him, and sing while a note is held
 	crowd.gather(inst == Kit.CHOIR)
 	if inst == Kit.CHOIR and not held.is_empty():
@@ -217,6 +222,12 @@ func press(id: String) -> void:
 			"metro":
 				looper.metronome = not looper.metronome
 				_dirty = true
+			"hide":
+				# (there is nothing to watch with it stopped: it starts the loop too)
+				if not looper.playing and not looper.counting:
+					press("play")
+				if looper.playing or looper.counting:
+					hud.hide_controls()
 			"bpm-":
 				looper.bpm = maxf(50.0, looper.bpm - 5.0)
 				_dirty = true
@@ -243,9 +254,10 @@ func press(id: String) -> void:
 				looper.chain = not looper.chain
 				_dirty = true
 			"demo":
-				load_demo()
+				load_demo(sample)
 				hud.menu_open = false
-				hud.toast("The house band. Press play, then join in")
+				hud.toast(SAMPLES[sample] + ". Press play, then join in")
+				sample = (sample + 1) % SAMPLES.size()
 			"new":
 				new_song()
 				hud.menu_open = false
@@ -396,11 +408,11 @@ func new_song() -> void:
 	looper.changed.emit()
 
 
-func load_demo() -> void:
+func load_demo(which := 0) -> void:
 	looper.stop()
 	key = 0
 	tuning = 0
-	looper.from_dict(_demo())
+	looper.from_dict([_demo(), _march(), _hymn()][which])
 
 
 # A couple of bars for the house band: drums, tuba, accordion, guitar and bells, with the piccolo
@@ -537,3 +549,91 @@ static func _numbered(id: String, prefix: String) -> int:
 	if id.begins_with(prefix) and number.length() in [1, 2] and number.is_valid_int():
 		return int(number)
 	return -1
+
+
+# --- The sample songs -------------------------------------------------------------------
+# Each is two parts of four bars, played in turn. Notes are [beat, length, note]; a drum is
+# [beat, which, kit] with the kit -1 for the big low drums, 1 for the toys.
+
+func _blank_tracks() -> Array:
+	var tracks := []
+	for i in Kit.INSTRUMENTS.size():
+		tracks.append([])
+	return tracks
+
+
+func _hits(tracks: Array, hits: Array) -> void:
+	for hit: Array in hits:
+		tracks[Kit.DRUMS].append([hit[0], 0.1, hit[1], (hit[2] if hit.size() > 2 else 0) * Kit.DRUM_KIT])
+
+
+# The same chord at each of `beats`
+func _chords(tracks: Array, i: int, beats: Array, chord: Array, length: float) -> void:
+	for t: float in beats:
+		for n: int in chord:
+			_add(tracks, i, [[t, length, n]])
+
+
+# A circus march in D minor that is a little too pleased with itself: tuba and big drum, the
+# organ on the off beats, the trumpet with the tune, then the bassoon and the piccolo with theirs
+func _march() -> Dictionary:
+	var parts := []
+	for part in 2:
+		var tracks := _blank_tracks()
+		var chords: Array = [[62, 65, 69], [62, 65, 69], [62, 67, 70], [61, 64, 69]] if part == 0 else [[62, 65, 69], [62, 65, 70], [62, 67, 70], [62, 65, 69]]
+		var roots: Array = [[38, 45], [38, 45], [43, 50], [45, 52]] if part == 0 else [[38, 45], [46, 53], [43, 45], [38, 45]]
+		for bar in 4:
+			var at := bar * 4.0
+			_add(tracks, Kit.TUBA, [[at, 0.8, roots[bar][0]], [at + 2.0, 0.8, roots[bar][1]]])
+			_chords(tracks, Kit.ORGAN, [at + 1.0, at + 3.0], chords[bar], 0.45)
+			_hits(tracks, [[at, 0, -1], [at + 2.0, 0, -1], [at + 1.0, 1], [at + 3.0, 1]])
+			for k in 8:
+				_hits(tracks, [[at + k * 0.5, 2]])
+			if part == 1:
+				_chords(tracks, Kit.ACCORDION, [at], chords[bar].map(func(n: int) -> int: return n + 12), 3.6)
+				_hits(tracks, [[at + 1.5, 0, 1], [at + 3.5, 0, 1]])
+		_hits(tracks, [[0.0, 4], [15.0, 1], [15.5, 1]])
+		if part == 0:
+			_add(tracks, Kit.TRUMPET, [[0, 1, 69], [1, 0.5, 74], [1.5, 0.5, 77], [2, 1, 76], [3, 1, 74],
+					[4, 0.5, 73], [4.5, 0.5, 74], [5, 1, 76], [6, 1.6, 77],
+					[8, 1, 79], [9, 0.5, 82], [9.5, 0.5, 81], [10, 1, 79], [11, 1, 77],
+					[12, 1, 76], [13, 1, 73], [14, 1.8, 69]])
+			_add(tracks, Kit.BELLS, [[7.5, 0.5, 86], [15.5, 0.5, 81]])
+		else:
+			_add(tracks, Kit.BASSOON, [[0, 1.5, 50], [1.5, 0.5, 53], [2, 1.8, 57], [4, 1.5, 58], [5.5, 0.5, 57], [6, 1.8, 53],
+					[8, 1, 55], [9, 1, 58], [10, 1, 57], [11, 1, 61], [12, 3, 62]])
+			_add(tracks, Kit.PICCOLO, [[0, 0.5, 86], [0.5, 0.5, 89], [1, 1, 93], [2, 0.5, 89], [2.5, 0.5, 86], [3, 1, 81],
+					[4, 0.5, 82], [4.5, 0.5, 86], [5, 1, 89], [6, 1.8, 86],
+					[8, 0.5, 79], [8.5, 0.5, 82], [9, 1, 86], [10, 0.5, 81], [10.5, 0.5, 85], [11, 1, 88], [12, 3, 86]])
+			_hits(tracks, [[12.0, 4, 1], [13.0, 3, 1], [14.0, 3, 1]])
+		parts.append(tracks)
+	return {"bpm": 120.0, "bars": 4, "snap": 0.25, "chain": true, "sections": [parts[0], parts[1], [], []]}
+
+
+# A slow hymn in A minor for the little folk to sing: the choir holds the chords, the bells
+# pick them out, the bassoon walks under them, and the viola, then the theremin, has the tune
+func _hymn() -> Dictionary:
+	var parts := []
+	for part in 2:
+		var tracks := _blank_tracks()
+		var chords: Array = [[57, 60, 64], [57, 60, 65], [55, 60, 64], [56, 59, 64]] if part == 0 else [[57, 60, 64], [57, 62, 65], [56, 59, 64], [57, 60, 64]]
+		var roots: Array = [45, 41, 48, 40] if part == 0 else [45, 50, 40, 45]
+		var spread: Array = [[81, 84, 88, 84], [77, 81, 84, 81], [76, 79, 84, 79], [76, 80, 83, 80]] if part == 0 else [[81, 84, 88, 84], [74, 77, 81, 77], [76, 80, 83, 80], [81, 84, 88, 84]]
+		for bar in 4:
+			var at := bar * 4.0
+			_chords(tracks, Kit.CHOIR, [at], chords[bar], 3.8)
+			_add(tracks, Kit.BASSOON, [[at, 2.8, roots[bar]], [at + 3.0, 0.9, roots[bar] + 7]])
+			for k in 8:
+				_add(tracks, Kit.BELLS, [[at + k * 0.5, 0.5, spread[bar][k % 4]]])
+			_hits(tracks, [[at, 0, -1], [at + 2.0, 4, -1]])
+			if part == 1:
+				_add(tracks, Kit.GUITAR, [[at, 0.9, roots[bar] + 12], [at + 1.0, 0.9, chords[bar][1]], [at + 2.0, 0.9, chords[bar][2]], [at + 3.0, 0.9, chords[bar][1]]])
+				_hits(tracks, [[at + 1.0, 2, 1], [at + 3.0, 2, 1]])
+		if part == 0:
+			_add(tracks, Kit.VIOLA, [[0, 2, 64], [2, 1, 69], [3, 1, 72], [4, 3, 69], [7, 1, 65],
+					[8, 2, 67], [10, 2, 64], [12, 2, 68], [14, 1.9, 71]])
+		else:
+			_add(tracks, Kit.THEREMIN, [[0, 3, 69], [3, 1, 72], [4, 2, 74], [6, 2, 77], [8, 3, 76], [11, 1, 68], [12, 3.8, 69]])
+			_add(tracks, Kit.VIOLA, [[0, 3.8, 60], [4, 3.8, 62], [8, 3.8, 59], [12, 3.8, 60]])
+		parts.append(tracks)
+	return {"bpm": 76.0, "bars": 4, "snap": 0.25, "chain": true, "sections": [parts[0], parts[1], [], []]}

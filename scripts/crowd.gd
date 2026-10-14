@@ -18,6 +18,9 @@ var phase := -1.0        # how far through the beat the loop is, or -1 when it i
 var lively := false      # there is music
 var dancing := 0.0       # seconds of dancing left
 var tag := 0.0           # seconds of tag left
+var playing := false     # the loop is going: they dance it, a figure every four bars
+var tempo := 110.0
+var beats := 0.0         # how many beats of it they have danced
 var choir := false       # he is conducting: everyone lines up in front of him
 var singing := 0.0       # seconds of a sung note left
 var time := 0.0
@@ -82,10 +85,21 @@ func _process(delta: float) -> void:
 	dancing = maxf(0.0, dancing - delta)
 	tag = maxf(0.0, tag - delta)
 	singing = maxf(0.0, singing - delta)
-	for kid in kids:
+	beats = beats + delta * tempo / 60.0 if playing else 0.0
+	var routine := playing and not choir and tag <= 0.0 and dancing <= 0.0
+	for i in kids.size():
+		var kid := kids[i]
 		var node: Node3D = kid.node
 		var moving := false
 		var way := 1.0
+		var step := {}
+		if routine:
+			# Its place in the figure is where it is always on its way to
+			step = _figure(kid, i)
+			kid.wait = 0.0
+			kid.to_a = step.a
+			kid.to_r = step.r
+			kid.r = move_toward(kid.r, kid.to_r, 2.2 * delta)
 		if kid.wait > 0.0:
 			kid.wait -= delta
 			if kid.wait <= 0.0:
@@ -93,7 +107,7 @@ func _process(delta: float) -> void:
 		else:
 			var gap: float = kid.to_a - kid.a
 			# (off round the stand at a run for tag, and quicker still to their places in the choir)
-			var pace: float = kid.pace * (1.8 if tag > 0.0 else (3.2 if choir else 1.0))
+			var pace: float = kid.pace * (1.8 if tag > 0.0 else (3.2 if choir else (2.4 if routine else 1.0)))
 			var turn: float = pace / kid.r * delta
 			if absf(gap) <= turn:
 				kid.a = kid.to_a
@@ -123,6 +137,13 @@ func _process(delta: float) -> void:
 				arms_up = 1.0 if dancing > 0.0 else 0.5 + 0.5 * sin(time * 0.7 + kid.hop * TAU)
 			if dancing > 0.0:
 				node.rotation.z = 0.18 * sin(time * 6.0 + kid.hop * TAU)
+			if not step.is_empty():
+				# In its place: the figure's own hop, arms, lean and turn
+				at.y += step.hop - (absf(sin(PI * fposmod(beat + kid.hop * 0.5, 1.0))) * jump)
+				arms_up = step.arms
+				node.rotation.z = step.lean
+				if step.spin != 0.0:
+					node.rotation.y = yaw + step.spin
 			if singing > 0.0:
 				# Heads back and arms out, swaying, for as long as the note lasts
 				var loud := clampf(singing * 5.0, 0.0, 1.0)
@@ -135,6 +156,30 @@ func _process(delta: float) -> void:
 			var flip := 1.0 if side == 0 else -1.0
 			kid.legs[side].rotation.x = swing * 0.9 * flip
 			kid.arms[side].rotation.x = lerpf(-swing * 0.7 * flip, -2.7 + 0.3 * sin(time * 8.0 + kid.hop * TAU + side), arms_up)
+
+
+# Where a dancer should be this instant, and how it holds itself there. The figure changes
+# every four bars: a row that steps from side to side and turns, two rows that cross, a wave
+# along the row, and in toward him and out again.
+func _figure(kid: Dictionary, i: int) -> Dictionary:
+	var b := beats
+	var ring: Array = kid.ring
+	var place: float = kid.place
+	var front := lerpf(-1.15, 1.15, place)
+	var on_beat := phase if phase >= 0.0 else fposmod(b, 1.0)
+	var hop := 0.13 * absf(sin(PI * on_beat))
+	match int(b / 16.0) % 4:
+		0:
+			return {"a": front + 0.16 * sin(b * PI / 2.0), "r": ring[0] + 0.12, "hop": hop, "arms": 0.5 + 0.5 * sin(b * PI),
+					"lean": 0.14 * sin(b * PI / 2.0), "spin": TAU * clampf(fposmod(b, 4.0) - 3.0, 0.0, 1.0)}
+		1:
+			var way := 1.0 if i % 2 == 0 else -1.0
+			return {"a": front * 0.7 + way * 0.5 * sin(b * PI / 4.0), "r": ring[0] + 0.12, "hop": hop, "arms": 1.0, "lean": 0.0, "spin": 0.0}
+		2:
+			var up := sin(PI * clampf(fposmod(b - place * 2.0, 2.0) / 0.6, 0.0, 1.0))
+			return {"a": front, "r": ring[0] + 0.12, "hop": 0.32 * up, "arms": up, "lean": 0.0, "spin": 0.0}
+	var near := 0.5 - 0.5 * cos(b * PI / 2.0)
+	return {"a": front, "r": lerpf(ring[1], ring[0], near), "hop": hop, "arms": near, "lean": 0.1 * sin(b * PI), "spin": 0.0}
 
 
 # Where next: somewhere on its ring, the short way round
