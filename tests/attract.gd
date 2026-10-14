@@ -1,6 +1,6 @@
 extends SceneTree
-## Plays the game for the arcade's preview film: the house band going, a few phrases over it on
-## three instruments, and night falling.
+## Plays the game for the arcade's preview film: the house band going, a phrase on the trumpet, the
+## choir called up to sing, the organ, the toy drums, and the controls put away for the dance.
 ## godot --path . --fixed-fps 30 --write-movie <out.avi> -s tests/attract.gd
 
 const FPS := 30.0
@@ -22,20 +22,27 @@ func _run() -> void:
 	await _beats(0.5)
 	main.press("play")
 	await _beats(2.0)
-	main.press("i1")
+	main.press("i%d" % Kit.TRUMPET)
 	await _phrase([0, 2, 4, 2, 3, 2, 1, 0])
-	main.press("i0")
-	await _beats(1.0)
-	await _phrase([4, 3, 2, 4, 2, 1, 2, 0])
-	main.stage.set_night(true)
-	main.stage.set_fireflies(true)
-	main.press("i5")
+	# The choir: the little folk run to their places and sing three long notes
+	main.press("i%d" % Kit.CHOIR)
+	await _beats(1.5)
+	for b: int in [0, 2, 4]:
+		main.hud._down("n%d" % b)
+		await _beats(1.4)
+		main.hud._up("n%d" % b)
+		await _beats(0.1)
+	main.press("i%d" % Kit.ORGAN)
 	await _beats(1.0)
 	await _phrase([0, 2, 4, 2, 4, 3, 2, 4])
-	main.press("i2")
-	await _beats(1.0)
-	await _phrase([0, 2, 1, 3, 2, 4, 2, 0])
-	await _beats(1.0)
+	# The toy drums, then the controls put away for the dance
+	main.press("i%d" % Kit.DRUMS)
+	main.press("up")
+	await _beats(0.5)
+	await _phrase([0, 2, 1, 3, 0, 4])
+	main.press("up")
+	main.press("hide")
+	await _beats(5.0)
 	quit()
 
 
