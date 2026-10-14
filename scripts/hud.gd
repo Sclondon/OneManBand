@@ -82,7 +82,7 @@ var stick_finger := -1
 var stick_by_page := false   # a finger the page saw go down on the stick has it
 # The controls can be put away while the loop plays, to watch him: a tap anywhere (or the loop
 # stopping) brings them back. `shown` is how far they are in view, `view_rect` the part of
-# the screen the camera may fill, which grows to all of it as they go
+# the screen the camera keeps him in (the same with them away: nothing moves but the controls)
 var put_away := false
 var shown := 1.0
 var view_rect := Rect2(0, 0, 1280, 720)
@@ -356,12 +356,10 @@ func _process(delta: float) -> void:
 		put_away = false
 	shown = move_toward(shown, 0.0 if put_away else 1.0, delta * 3.0)
 	modulate.a = shown * shown
-	# (a little small and high in it, so that the dancers in front of him are in the picture too)
-	var whole := Rect2(Vector2(size_now.x * 0.1, size_now.y * 0.02), Vector2(size_now.x * 0.8, size_now.y * 0.72))
-	var ease := 1.0 - shown * shown * (3.0 - 2.0 * shown)
 	var glide := 1.0 - exp(-7.0 * delta)
 	seen = Rect2(seen.position.lerp(free_rect.position, glide), seen.size.lerp(free_rect.size, glide))
-	view_rect = Rect2(seen.position.lerp(whole.position, ease), seen.size.lerp(whole.size, ease))
+	# (putting the controls away does not move the camera: the picture stays as it was, without them)
+	view_rect = seen
 	toast_left = maxf(0.0, toast_left - delta)
 	_ask_the_page()
 	stick_now = stick_now.lerp(stick if stick_finger >= 0 or stick_by_page else stick_keys, 1.0 - exp(-20.0 * delta))
