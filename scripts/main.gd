@@ -11,6 +11,7 @@ const KEYS := {
 	KEY_A: "n0", KEY_S: "n1", KEY_D: "n2", KEY_F: "n3", KEY_G: "n4",
 	KEY_Q: "down", KEY_E: "up", KEY_C: "flat", KEY_V: "sharp",
 	KEY_SPACE: "play", KEY_R: "rec", KEY_Z: "undo", KEY_M: "metro", KEY_H: "hide", KEY_X: "shelf", KEY_ESCAPE: "close",
+	KEY_COMMA: "bpm-", KEY_PERIOD: "bpm+",
 }
 const NUMBER_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUAL]
 const FOV := 38.0
@@ -48,6 +49,9 @@ var _radio_wait := 0.0
 var time := 0.0
 var _dirty := false
 var _since_save := 0.0
+var _tempo_way := 0       # -1 or 1 while a tempo button is held down
+var _tempo_held := 0.0
+var _tempo_next := 0.0
 
 
 func _ready() -> void:
@@ -152,6 +156,7 @@ func _process(delta: float) -> void:
 	if inst == Kit.CHOIR and not held.is_empty():
 		crowd.sing(0.3)
 	_aim()
+	_run_tempo(delta)
 	if _radio_wait > 0.0:
 		_radio_wait -= delta
 		if _radio_wait <= 0.0:
@@ -231,12 +236,12 @@ func press(id: String) -> void:
 					press("play")
 				if looper.playing or looper.counting:
 					hud.hide_controls()
-			"bpm-":
-				looper.bpm = maxf(50.0, looper.bpm - 5.0)
-				_dirty = true
-			"bpm+":
-				looper.bpm = minf(200.0, looper.bpm + 5.0)
-				_dirty = true
+			"bpm-", "bpm+":
+				# A tap is one beat a minute; held, it runs, and before long it runs in fives
+				_tempo_way = -1 if id == "bpm-" else 1
+				_tempo_held = 0.0
+				_tempo_next = 0.45
+				_tempo_step(1.0)
 			"bars":
 				looper.next_bars()
 			"menu":
@@ -285,9 +290,31 @@ func press(id: String) -> void:
 
 
 func release(id: String) -> void:
+	if (id == "bpm-" and _tempo_way < 0) or (id == "bpm+" and _tempo_way > 0):
+		_tempo_way = 0
 	var n := _numbered(id, "n")
 	if n >= 0:
 		_note_off(n)
+
+
+func _tempo_step(by: float) -> void:
+	# (steps of five land on the fives, so a long hold gets to the round numbers)
+	var to := looper.bpm + by * _tempo_way
+	if by > 1.0:
+		to = (floorf(looper.bpm / by) + 1.0) * by if _tempo_way > 0 else (ceilf(looper.bpm / by) - 1.0) * by
+	looper.bpm = clampf(roundf(to), 50.0, 200.0)
+	_dirty = true
+
+
+func _run_tempo(delta: float) -> void:
+	if _tempo_way == 0:
+		return
+	_tempo_held += delta
+	_tempo_next -= delta
+	while _tempo_next <= 0.0:
+		var fives := _tempo_held > 1.8
+		_tempo_next += 0.15 if fives else 0.07
+		_tempo_step(5.0 if fives else 1.0)
 
 
 func choose(which: int) -> void:

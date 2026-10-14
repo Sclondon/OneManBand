@@ -101,6 +101,21 @@ func _run() -> void:
 	# A new song: record the trumpet after the count-in
 	main.press("new")
 	_check(looper.song_empty(), "a new song is empty")
+	# The tempo: a tap is one beat a minute, a hold runs on in fives
+	await _touch("bpm+", true)
+	await _touch("bpm+", false)
+	_check(looper.bpm == 111.0, "a tap on the tempo is one bpm (%d)" % looper.bpm)
+	await _touch("bpm-", true)
+	await _touch("bpm-", false)
+	_check(looper.bpm == 110.0, "and back down one")
+	await _touch("bpm+", true)
+	await _frames(180)
+	await _touch("bpm+", false)
+	var ran := looper.bpm
+	_check(ran > 125.0 and ran < 200.0 and fmod(ran, 5.0) == 0.0, "held, it runs, and lands on the fives (%d)" % ran)
+	await _frames(20)
+	_check(looper.bpm == ran, "and stops when let go")
+	looper.bpm = 110.0
 	await _touch("i1", true)
 	await _touch("i1", false)
 	_check(main.inst == Kit.TRUMPET and main.man.inst == Kit.TRUMPET, "tapping an instrument puts it in his hands")

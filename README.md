@@ -16,7 +16,7 @@ thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a pho
   snare, hat, tom and crash; the low octave key changes them to the big drums (boom, rim, open hat, floor tom, ride) and
   the high one to the toys (clap, block, shake, bell, splash).
 - **Loop station**: record (`R`; counts a bar in from a standstill), play/stop (`Space`), undo (`Z`), clear this
-  track, mute this track, metronome (`M`), tempo, loop length (1, 2, 4 or 8 bars; doubling repeats what is there),
+  track, mute this track, metronome (`M`), tempo (`,` and `.`; a tap is 1 bpm, holding runs it, then in fives), loop length (1, 2, 4 or 8 bars; doubling repeats what is there),
   and four sections A to D that swap at the end of the loop.
 - **More room**: the tab over the instruments (`X`) tucks them away while you play, to see more of him.
 - **Watching**: the eye (`H`) puts the controls away while the loop plays; a tap anywhere, or the loop stopping,
