@@ -21,7 +21,7 @@ const VIOLA := 9
 const INSTRUMENTS: Array[Dictionary] = [
 	{"id": "piccolo", "name": "Piccolo", "base": 72, "bases": [72, 84, 96], "held": true, "release": 0.07, "gm": 72, "db": -5.0, "color": Color("4fd6c8")},
 	{"id": "trumpet", "name": "Trumpet", "base": 60, "bases": [48, 60, 72], "held": true, "release": 0.06, "gm": 56, "db": -7.0, "color": Color("ffd24a")},
-	{"id": "accordion", "name": "Accordion", "base": 48, "bases": [48, 60, 72], "held": true, "release": 0.09, "gm": 21, "db": -9.0, "color": Color("ff6a5c")},
+	{"id": "accordion", "name": "Accordion", "base": 60, "bases": [48, 60, 72, 84], "held": true, "release": 0.09, "gm": 21, "db": -9.0, "color": Color("ff6a5c")},
 	{"id": "guitar", "name": "Guitar", "base": 48, "bases": [48, 60, 72], "held": false, "gm": 24, "db": -4.0, "color": Color("f0a25a")},
 	{"id": "tuba", "name": "Tuba", "base": 36, "bases": [36, 48, 60], "held": true, "release": 0.1, "gm": 58, "db": -3.0, "color": Color("b98cff")},
 	{"id": "bells", "name": "Bells", "base": 72, "bases": [72, 84, 96], "held": false, "gm": 9, "db": -8.0, "color": Color("ffa6d0")},
@@ -30,7 +30,7 @@ const INSTRUMENTS: Array[Dictionary] = [
 	{"id": "theremin", "name": "Theremin", "base": 60, "bases": [60, 72, 84], "held": true, "release": 0.3, "gm": 78, "db": -5.0, "color": Color("f5f1e6")},
 	{"id": "viola", "name": "Viola", "base": 48, "bases": [48, 60, 72], "held": true, "release": 0.16, "gm": 41, "db": -6.0, "color": Color("8fb4ff")},
 	# (the little folk on the green, singing: he conducts)
-	{"id": "choir", "name": "Choir", "base": 60, "bases": [48, 60, 72], "held": true, "release": 0.28, "gm": 52, "db": -6.0, "color": Color("a8e6c9")},
+	{"id": "choir", "name": "Choir", "base": 60, "bases": [48, 52, 56, 60, 64, 68, 72, 76, 80, 84], "held": true, "release": 0.35, "gm": 52, "db": -6.0, "color": Color("a8e6c9")},
 	{"id": "bassoon", "name": "Bassoon", "base": 48, "bases": [36, 48, 60], "held": true, "release": 0.09, "gm": 70, "db": -5.0, "color": Color("c9643e")},
 ]
 

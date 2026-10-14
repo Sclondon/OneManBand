@@ -92,14 +92,15 @@ func _process(delta: float) -> void:
 				_choose(kid)
 		else:
 			var gap: float = kid.to_a - kid.a
-			var pace: float = kid.pace * (1.8 if tag > 0.0 else 1.0)
+			# (off round the stand at a run for tag, and quicker still to their places in the choir)
+			var pace: float = kid.pace * (1.8 if tag > 0.0 else (3.2 if choir else 1.0))
 			var turn: float = pace / kid.r * delta
 			if absf(gap) <= turn:
 				kid.a = kid.to_a
 				kid.wait = 0.02 if tag > 0.0 else (0.4 if choir else (dancing if dancing > 0.0 else randf_range(0.4, 4.0 if lively else 1.5)))
 			else:
 				kid.a += signf(gap) * turn
-				kid.r = move_toward(kid.r, kid.to_r, pace * 0.5 * delta)
+				kid.r = move_toward(kid.r, kid.to_r, pace * (1.0 if choir else 0.5) * delta)
 				way = signf(gap)
 				moving = true
 		var at := Vector3(sin(kid.a) * kid.r, kid.ring[4], cos(kid.a) * kid.r)

@@ -25,7 +25,7 @@ func _initialize() -> void:
 		_held("piccolo_%d" % m, m, _piccolo, {"attack": 0.025, "vib": 0.004, "rate": 6, "breath": 0.07})
 	for m: int in [48, 60, 72]:
 		_held("trumpet_%d" % m, m, _trumpet, {"attack": 0.05, "scoop": -0.7, "bright": _trumpet_blare, "vib": 0.002, "rate": 5, "breath": 0.004})
-	for m: int in [48, 60, 72]:
+	for m: int in [48, 60, 72, 84]:
 		_held("accordion_%d" % m, m, _reed, {"attack": 0.07, "breath": 0.004, "voices": [[1, 0, 1.0], [1, 6, 0.85], [2, -3, 0.35]]})
 	for m: int in [36, 48, 60]:
 		_held("tuba_%d" % m, m, _tuba, {"attack": 0.1, "scoop": -0.5, "vib": 0.001, "rate": 4, "breath": 0.012})
@@ -35,8 +35,8 @@ func _initialize() -> void:
 		_held("theremin_%d" % m, m, _theremin, {"attack": 0.16, "scoop": -2.5, "vib": 0.013, "rate": 6})
 	for m: int in [48, 60, 72]:
 		_held("viola_%d" % m, m, _viola, {"attack": 0.11, "vib": 0.005, "rate": 5, "breath": 0.025})
-	for m: int in [48, 60, 72]:
-		_held("choir_%d" % m, m, _choir, {"attack": 0.14, "vib": 0.006, "rate": 5, "breath": 0.03, "voices": [[1, 0, 1.0], [1, 4, 0.8], [1, -3, 0.8], [1, 7, 0.55], [2, 2, 0.22]]})
+	for m: int in range(48, 85, 4):
+		_sung("choir_%d" % m, m)
 	for m: int in [36, 48, 60]:
 		_held("bassoon_%d" % m, m, _bassoon, {"attack": 0.05, "scoop": -0.3, "vib": 0.003, "rate": 5, "breath": 0.012})
 	for m: int in [48, 60, 72]:
@@ -99,11 +99,53 @@ func _bassoon(h: int, hz: float) -> float:
 	return pow(h, -0.7) * tube / (1.0 + pow(at / 3000.0, 3.0))
 
 
-# Small voices singing "ah": the humps an open mouth gives a voice
-func _choir(h: int, hz: float) -> float:
-	var at := h * hz
-	var mouth := 0.1 + exp(-pow((at - 900.0) / 230.0, 2.0)) + 0.7 * exp(-pow((at - 1400.0) / 270.0, 2.0)) + 0.35 * exp(-pow((at - 3100.0) / 450.0, 2.0))
-	return pow(h, -0.8) * mouth / (1.0 + pow(at / 5000.0, 3.0))
+# The choir: seven small voices that are not quite together. Each has a head of its own size
+# (so its mouth's humps lie a little higher or lower), a vowel of its own between "oh" and
+# "ah", a wobble at its own speed, a pitch a hair off the others', and comes in when it is
+# ready. Two seconds go round, long enough that they never seem to repeat.
+func _sung(file: String, midi: int) -> void:
+	var hz := _pitch(midi)
+	var seconds := 2.0
+	var cycles := roundi(hz * seconds)
+	var loop := roundi(cycles * RATE / hz)
+	var pre := int(0.3 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(pre + loop)
+	for s in 7:
+		var size := 0.93 + 0.025 * s
+		var open := float(s % 3) / 2.0
+		var table := _wave(hz, func(h: int, f: float) -> float: return _mouth(h, f, size, open))
+		var waves := float(cycles + [0, 2, -2, 3, -3, 1, -1][s])
+		var rate := float([9, 11, 10, 12, 9, 11, 10][s])
+		var depth := (0.004 + 0.0012 * (s % 4)) * hz * seconds / (TAU * rate)
+		var turn := s * 0.9
+		var late := 0.02 * ((s * 3) % 7)
+		for i in pre + loop:
+			var u := float(i - pre) / loop
+			var phase := waves * u + depth * sin(TAU * rate * u + turn)
+			var at := fposmod(phase, 1.0) * TABLE
+			var k := int(at) % TABLE
+			var v := lerpf(table[k], table[(k + 1) % TABLE], at - int(at))
+			var come := clampf((float(i) / RATE - late) / 0.16, 0.0, 1.0) if i < pre else 1.0
+			var swell := 1.0 + 0.15 * sin(TAU * (1 + s % 3) * u + turn * 2.0)
+			out[i] += v * swell * sin(come * PI / 2.0)
+	var peak := _peak(out)
+	var air := 0.0
+	for i in pre + loop:
+		air = lerpf(air, noise.randf_range(-1.0, 1.0), 0.18)
+		out[i] = out[i] / peak + air * 0.035 * minf(1.0, float(i) / (0.1 * RATE))
+	_save(file, out, 0.7, pre)
+
+
+# How loud harmonic h of a sung note is: a voice's own falling-away, strong at the bottom, and
+# the humps of the mouth it comes out of
+func _mouth(h: int, hz: float, size: float, open: float) -> float:
+	var at := h * hz / size
+	var f1 := lerpf(620.0, 980.0, open)
+	var f2 := lerpf(1050.0, 1450.0, open)
+	var humps := 0.07 + 0.3 / (1.0 + pow(at / 450.0, 2.0)) + exp(-pow((at - f1) / 140.0, 2.0)) \
+			+ 0.6 * exp(-pow((at - f2) / 170.0, 2.0)) + 0.22 * exp(-pow((at - 3200.0) / 380.0, 2.0))
+	return pow(h, -1.3) * humps / (1.0 + pow(at / 6000.0, 4.0))
 
 
 # Almost a pure tone

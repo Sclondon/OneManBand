@@ -421,13 +421,13 @@ func _demo() -> Dictionary:
 			[4, 0.8, 43], [5.5, 0.4, 50], [6, 0.8, 45], [7, 0.4, 45], [7.5, 0.4, 48]])
 	var stabs := []
 	for t: float in [0.5, 1.5, 2.5, 3.5]:
-		for n: int in [62, 65, 69]:
+		for n: int in [74, 77, 81]:
 			stabs.append([t, 0.3, n])
 	for t: float in [4.5, 5.5]:
-		for n: int in [62, 67, 71]:
+		for n: int in [74, 79, 83]:
 			stabs.append([t, 0.3, n])
 	for t: float in [6.5, 7.5]:
-		for n: int in [64, 69, 72]:
+		for n: int in [76, 81, 84]:
 			stabs.append([t, 0.3, n])
 	_add(tracks, Kit.ACCORDION, stabs)
 	var picked := []

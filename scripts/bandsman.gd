@@ -17,15 +17,15 @@ const REACH := [
 	[Vector3(-0.07, 0.56, 0.22), Vector3(-0.2, 0.555, 0.2)],
 	[Vector3(0.04, 0.555, 0.3), Vector3(-0.03, 0.6, 0.37)],
 	[Vector3(0.26, 0.14, 0.32), null],
-	[Vector3(0.36, 0.2, 0.27), Vector3(-0.1, 0.01, 0.33)],
+	[Vector3(0.36, 0.32, 0.3), Vector3(-0.13, 0.13, 0.35)],
 	[Vector3(0.13, 0.27, 0.23), Vector3(-0.03, 0.44, 0.23)],
 	[Vector3(0.34, 0.3, 0.28), null],
 	[Vector3(0.18, 0.2, 0.38), null],
 	[Vector3(0.13, 0.195, 0.29), Vector3(-0.1, 0.195, 0.29)],
 	[Vector3(0.31, 0.2, 0.38), Vector3(-0.3, 0.2, 0.38)],
 	[Vector3(0.37, 0.5, 0.4), Vector3(-0.12, 0.5, 0.3)],
-	[Vector3(0.32, 0.4, 0.3), Vector3(-0.3, 0.44, 0.34)],
-	[Vector3(0.28, 0.34, 0.2), Vector3(0.15, 0.03, 0.22)],
+	[Vector3(0.36, 0.4, 0.32), Vector3(-0.37, 0.43, 0.37)],
+	[Vector3(0.33, 0.34, 0.26), Vector3(0.125, 0.0, 0.26)],
 ]
 
 var stage: Stage
@@ -39,6 +39,8 @@ var faces := {}
 var p := {}              # the pieces of the model by name
 var acc: Node3D
 var carried: Array[Dictionary] = []
+# The things that go in a hand: [instrument, piece, the hand, how it sits in it, where on him it is kept]
+var in_hand: Array[Array] = []
 var hand_at: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
 var strike: Array[float] = [0.0, 0.0]
 var pops := {}
@@ -84,25 +86,37 @@ func _ready() -> void:
 			Transform3D(Basis(Vector3.BACK, 1.2), Vector3(0.21, 0.12, 0.12)))
 	_carry(Kit.TRUMPET, p.trumpet, Transform3D(Basis(Vector3.UP, -0.45) * Basis(Vector3.RIGHT, 0.3), Vector3(0.0, 0.6, 0.17)),
 			Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3(-0.31, 0.5, -0.17)))
-	_carry(Kit.ACCORDION, acc, Transform3D(Basis(), Vector3(0.0, 0.14, 0.32)), null)
-	_carry(Kit.GUITAR, p.guitar, Transform3D(Basis(Vector3.BACK, 0.38), Vector3(-0.16, 0.0, 0.26)),
+	# (not being played, it hangs shut at his left side)
+	_carry(Kit.ACCORDION, acc, Transform3D(Basis(), Vector3(0.0, 0.14, 0.32)),
+			Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(0.48, -0.36, -0.12)))
+	# (held high on his chest, so that the strumming arm comes over the top of it and not through it)
+	_carry(Kit.GUITAR, p.guitar, Transform3D(Basis(Vector3.BACK, 0.38), Vector3(-0.16, 0.12, 0.26)),
 			Transform3D(Basis(Vector3.BACK, -1.15) * Basis(Vector3.UP, PI), Vector3(0.05, 0.3, -0.7)))
 	_carry(Kit.TUBA, p.tuba_pipe, p.tuba_pipe.transform, null)
+	# (the snare is slung on the front of his right thigh)
 	_carry(Kit.DRUMS, p.snare, Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0.0, -0.02, 0.39)),
-			null)
+			Transform3D(Basis(Vector3.RIGHT, PI / 2.0 - 0.15), Vector3(-0.25, -0.3, 0.16)))
 	# (the organ hangs in front of him, keys to his side of it and the pipes standing up beyond them)
-	_carry(Kit.ORGAN, p.organ, Transform3D(Basis(), Vector3(0.0, 0.1, 0.34)), null)
-	_carry(Kit.THEREMIN, p.theremin, Transform3D(Basis(Vector3.RIGHT, 0.15), Vector3(0.0, 0.02, 0.36)), null)
+	# (and low at his right side when it is not wanted, keys inward)
+	_carry(Kit.ORGAN, p.organ, Transform3D(Basis(), Vector3(0.0, 0.1, 0.34)),
+			Transform3D(Basis(Vector3.UP, -PI / 2.0), Vector3(-0.6, -0.5, -0.1)))
+	# (the theremin on the front of his left thigh, its rod laid back along his leg)
+	_carry(Kit.THEREMIN, p.theremin, Transform3D(Basis(Vector3.RIGHT, 0.15), Vector3(0.0, 0.02, 0.36)),
+			Transform3D(Basis(Vector3.RIGHT, -1.2), Vector3(0.26, -0.36, 0.08)))
 	# (the viola lies face up on his left shoulder, its neck out in front of him)
-	_carry(Kit.VIOLA, p.viola, Transform3D(Basis(Vector3.UP, -0.9) * Basis(Vector3.RIGHT, -PI / 2.0), Vector3(0.13, 0.5, 0.1)), null)
-	_give(p.bow, p.hand_R)
-	p.bow.position = Vector3(0.0, -0.05, 0.0)
+	# (hung on the face of the big drum otherwise, by his left ear, neck down, with the bow across it)
+	_carry(Kit.VIOLA, p.viola, Transform3D(Basis(Vector3.UP, -0.9) * Basis(Vector3.RIGHT, -PI / 2.0), Vector3(0.13, 0.5, 0.1)),
+			Transform3D(Basis(Vector3.BACK, -PI / 2.0 - 0.15), Vector3(0.34, 0.74, -0.17)))
+	in_hand.append([Kit.VIOLA, p.bow, p.hand_R, Transform3D(Basis(), Vector3(0.0, -0.05, 0.0)),
+			Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(-0.12, 0.0, 0.05))])
 	# (the bassoon stands across him, its foot by his right hip and its bell up past his left
 	# ear, with the crook coming round from it to his mouth)
-	_carry(Kit.BASSOON, p.bassoon, Transform3D(Basis(Vector3.BACK, -0.3), Vector3(0.22, 0.15, 0.24)), null)
-	# (the baton he conducts the choir with)
-	_give(p.baton, p.hand_R)
-	p.baton.transform = Transform3D(Basis(Vector3.RIGHT, PI / 2.0 - 1.0), Vector3(0.0, -0.05, 0.0))
+	# (stood up behind his left shoulder when he is not playing it)
+	_carry(Kit.BASSOON, p.bassoon, Transform3D(Basis(Vector3.BACK, -0.3), Vector3(0.22, 0.15, 0.24)),
+			Transform3D(Basis(Vector3.BACK, -0.2), Vector3(0.62, 0.0, -0.15)))
+	# (the baton he conducts the choir with, tucked in his belt the rest of the time)
+	in_hand.append([Kit.CHOIR, p.baton, p.hand_R, Transform3D(Basis(Vector3.RIGHT, PI / 2.0 - 1.0), Vector3(0.0, -0.05, 0.0)),
+			Transform3D(Basis(Vector3.RIGHT, PI / 2.0) * Basis(Vector3.UP, 0.2), Vector3(0.3, 0.02, 0.08))])
 	# Two of each thing that takes a hand apiece
 	for piece: String in ["bell_hand", "stick"]:
 		var other: Node3D = p[piece].duplicate()
@@ -112,6 +126,13 @@ func _ready() -> void:
 			one.transform = Transform3D(Basis(Vector3.RIGHT, PI / 2.0 - (0.7 if piece == "stick" else 0.2)), Vector3(0.0, -0.05, 0.0))
 			one.material_override = body
 			p[piece + "_" + side] = one
+			# (put away, the handbells hang from the ends of the chime rack over his head, and the
+			# sticks stand in his belt behind the snare)
+			var mirror := 1.0 if side == "L" else -1.0
+			var kept := Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3(0.36 * mirror, 0.98, -0.17))
+			if piece == "stick":
+				kept = Transform3D(Basis(Vector3.BACK, 0.12 * mirror) * Basis(Vector3.RIGHT, PI / 2.0), Vector3(-0.4 + 0.035 * mirror, 0.0, 0.07))
+			in_hand.append([Kit.BELLS if piece == "bell_hand" else Kit.DRUMS, one, p["hand_" + side], one.transform, kept])
 	for node: Node3D in p.values():
 		sizes[node] = node.scale
 	for h in 2:
@@ -121,11 +142,14 @@ func _ready() -> void:
 
 func choose(which: int, at_once := false) -> void:
 	inst = which
-	for side: String in ["L", "R"]:
-		p["bell_hand_" + side].visible = inst == Kit.BELLS
-		p["stick_" + side].visible = inst == Kit.DRUMS
-	p.bow.visible = inst == Kit.VIOLA
-	p.baton.visible = inst == Kit.CHOIR
+	# What goes in a hand is taken from where it is kept, or put back there (the bow on the viola)
+	for item: Array in in_hand:
+		var mine: bool = item[0] == inst
+		var piece: Node3D = item[1]
+		var to: Node3D = item[2] if mine else (p.viola if piece == p.bow else p.torso)
+		if piece.get_parent() != to:
+			_give(piece, to)
+			piece.transform = item[3] if mine else item[4]
 	for item in carried:
 		var mine: bool = item.inst == inst
 		item.node.visible = mine or item.stow != null
@@ -243,8 +267,12 @@ func _process(delta: float) -> void:
 		hand_at[h] = hand_at[h].lerp(_hand_goal(h), 1.0 - exp(-22.0 * delta))
 		var side := "L" if h == 0 else "R"
 		var mirror := 1.0 if h == 0 else -1.0
-		_reach(p["upper_" + side], p["fore_" + side], SHOULDER * Vector3(mirror, 1, 1), hand_at[h],
-				Vector3(mirror, -0.9, -0.35))
+		# (the elbow hangs out and back, but for the arm that strums the guitar: that one is up and
+		# forward, over the top of its body)
+		var pole := Vector3(mirror, -0.9, -0.35)
+		if inst == Kit.GUITAR and h == 1:
+			pole = Vector3(-1.0, 0.25, 0.6)
+		_reach(p["upper_" + side], p["fore_" + side], SHOULDER * Vector3(mirror, 1, 1), hand_at[h], pole)
 
 	for node: Node3D in pops.keys():
 		pops[node] = maxf(0.0, pops[node] - delta * 5.0)
