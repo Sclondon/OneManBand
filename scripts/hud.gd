@@ -27,7 +27,7 @@ const GOLD := Color("f8ca22")
 # The five note buttons, lowest to highest
 const PAD_COLORS: Array[Color] = [Color("4fb0ff"), Color("58d68d"), Color("f8ca22"), Color("ff9a3d"), Color("ff6b7c")]
 const TRANSPORT := ["rec", "play", "undo", "clear", "mute", "metro", "bpm-", "bpm", "bpm+", "bars", "s0", "s1", "s2", "s3", "hide", "menu"]
-const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "radio", "export", "midi", "sound", "songbook", "help", "close"]
+const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "radio", "export", "midi", "sound", "carry", "songbook", "help", "close"]
 const BENDERS := ["flat", "sharp", "down", "up"]
 # In a browser the stick also listens to the page's own touches (see _ready): on some phones
 # a finger's sliding never arrives as a drag here, though its going down and coming up do
@@ -838,6 +838,7 @@ func _draw_menu() -> void:
 		"export": "Save as MIDI file",
 		"midi": "MIDI keyboard: " + ("on" if band.midi_open else "off"),
 		"sound": "Sound: " + ("on" if band.synth.sound else "off"),
+		"carry": "He carries: " + ("everything" if band.man.carries_all else "what he plays"),
 		"songbook": "Song book",
 		"help": "How to play",
 		"close": "Back",

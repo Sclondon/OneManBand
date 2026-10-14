@@ -270,6 +270,9 @@ func press(id: String) -> void:
 				hud.menu_open = false
 			"midi":
 				open_midi()
+			"carry":
+				man.carry_all(not man.carries_all)
+				_dirty = true
 			"sound":
 				synth.sound = not synth.sound
 				_dirty = true
@@ -518,7 +521,7 @@ func save_game() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({"v": 1, "inst": inst, "key": key, "tuning": tuning, "night": stage.night,
-			"rain": stage.rain, "fireflies": stage.fireflies, "snow": stage.snow, "carnival": stage.carnival, "sound": synth.sound, "song": looper.to_dict()}))
+			"rain": stage.rain, "fireflies": stage.fireflies, "snow": stage.snow, "carnival": stage.carnival, "sound": synth.sound, "carry": man.carries_all, "song": looper.to_dict()}))
 	f.close()
 
 
@@ -537,6 +540,7 @@ func load_game() -> bool:
 	stage.set_snow(bool(data.get("snow", false)))
 	stage.carnival = bool(data.get("carnival", false))
 	synth.sound = bool(data.get("sound", true))
+	man.carries_all = bool(data.get("carry", true))
 	looper.from_dict(data.song)
 	_dirty = false
 	return true

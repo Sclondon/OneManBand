@@ -114,6 +114,16 @@ func _run() -> void:
 				await _shot("dance_%d_%d" % [k, f])
 			main.press("play")
 			await _frames(40)
+	# (by name only: him with only what he is playing on him, and the menu that says so)
+	if only.has("bare"):
+		main.press("carry")
+		await _frames(20)
+		await _shot("bare")
+		main.hud.menu_open = true
+		await _frames(3)
+		await _shot("bare_menu")
+		main.hud.menu_open = false
+		main.press("carry")
 	if _wanted("help"):
 		main.hud.help_open = true
 		await _frames(3)
