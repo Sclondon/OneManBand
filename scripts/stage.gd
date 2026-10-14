@@ -292,26 +292,26 @@ func _process(delta: float) -> void:
 
 
 func _light() -> void:
-	# It is never noon here: the day is the last of an October dusk, the night comes after it
+	# It is never noon here: the day is a low gold October sun, an hour before dusk, and the night comes after it
 	var grey := Color("5d5a6a").lerp(Color("1a1c2c"), dark)
-	var top := Color("2b2152").lerp(Color("05060f"), dark).lerp(grey, wet * 0.75)
-	var bottom := Color("ee8748").lerp(Color("1d1a3c"), dark).lerp(grey.lightened(0.12), wet * 0.75)
-	var haze := Color("8a4f58").lerp(Color("15132a"), dark).lerp(grey, wet * 0.6)
+	var top := Color("6a78c4").lerp(Color("05060f"), dark).lerp(grey, wet * 0.75)
+	var bottom := Color("fbcf98").lerp(Color("1d1a3c"), dark).lerp(grey.lightened(0.12), wet * 0.75)
+	var haze := Color("d2ad98").lerp(Color("15132a"), dark).lerp(grey, wet * 0.6)
 	sky.set_shader_parameter("top", N64.vec(top))
 	sky.set_shader_parameter("bottom", N64.vec(bottom))
 	sky.set_shader_parameter("stars", (0.2 + 0.8 * dark * dark) * (1.0 - wet))
 	var shade := 1.0 - wet * 0.35
-	N64.set_all("sun_dir", Vector3(-0.8, 0.28, 0.3).lerp(Vector3(0.4, 0.8, 0.3), dark).normalized())
-	N64.set_all("sun_col", Vector3(0.95, 0.42, 0.2).lerp(Vector3(0.2, 0.26, 0.44), dark) * shade)
-	N64.set_all("amb_col", Vector3(0.3, 0.25, 0.36).lerp(Vector3(0.17, 0.2, 0.36), dark) * shade)
+	N64.set_all("sun_dir", Vector3(-0.7, 0.5, 0.42).lerp(Vector3(0.4, 0.8, 0.3), dark).normalized())
+	N64.set_all("sun_col", Vector3(1.12, 0.84, 0.56).lerp(Vector3(0.2, 0.26, 0.44), dark) * shade)
+	N64.set_all("amb_col", Vector3(0.68, 0.6, 0.62).lerp(Vector3(0.17, 0.2, 0.36), dark) * shade)
 	# The lamps: warm at night; with the carnival on, every colour in turn, day or night
 	var lamp := Color.from_hsv(fposmod(time * 0.22, 1.0), 0.75, 1.0)
 	N64.set_all("lamp_col", N64.vec(lamp) * 2.4 * maxf(dark, 0.6) if carnival else Vector3(2.2, 1.5, 0.7) * lerpf(0.6, 1.0, dark))
 	lamps.set_shader_parameter("tint", N64.vec(lamp.lightened(0.25)) * 1.3 if carnival else Vector3.ONE)
 	N64.set_all("fog_col", N64.vec(haze))
-	N64.set_all("fog_near", lerpf(8.0, 6.0, wet))
-	N64.set_all("fog_far", lerpf(46.0, 30.0, wet))
-	sun.position = Vector3(-20.0, lerpf(3.2, -9.0, dark), -45.0)
+	N64.set_all("fog_near", lerpf(lerpf(12.0, 8.0, dark), 6.0, wet))
+	N64.set_all("fog_far", lerpf(lerpf(58.0, 46.0, dark), 30.0, wet))
+	sun.position = Vector3(-20.0, lerpf(7.0, -9.0, dark), -45.0)
 	moon.position = Vector3(14.0, lerpf(-9.0, 21.0, dark), -45.0)
 	sun.visible = wet < 0.5
 	moon.visible = wet < 0.5

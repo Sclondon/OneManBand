@@ -148,9 +148,11 @@ func layout(screen: Vector2) -> void:
 		top = s.y - m - 4.0
 	# In one row if they are a fair size that way, or else in two
 	var per := count
-	if (x1 - x0 - (count - 1) * 8.0) / count < 58.0:
+	# (lying down, in two they are kept small so that the shelf does not push him out of the picture;
+	# stood up there is room, and a thumb wants them a fair size)
+	if (x1 - x0 - (count - 1) * 8.0) / count < (46.0 if wide else 58.0):
 		per = ceili(count / 2.0)
-	var side := clampf((x1 - x0 - (per - 1) * 8.0) / per, 40.0, 92.0)
+	var side := clampf((x1 - x0 - (per - 1) * 8.0) / per, 40.0, 92.0 if per == count else (64.0 if wide else 76.0))
 	var start := (x0 + x1 - per * side - (per - 1) * 8.0) / 2.0
 	var block := ceili(float(count) / per) * (side + 8.0) - 8.0
 	for k in count:
