@@ -27,7 +27,7 @@ const GOLD := Color("f8ca22")
 # The five note buttons, lowest to highest
 const PAD_COLORS: Array[Color] = [Color("4fb0ff"), Color("58d68d"), Color("f8ca22"), Color("ff9a3d"), Color("ff6b7c")]
 const TRANSPORT := ["rec", "play", "undo", "clear", "mute", "metro", "bpm-", "bpm", "bpm+", "bars", "s0", "s1", "s2", "s3", "hide", "menu"]
-const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "radio", "export", "midi", "sound", "carry", "songbook", "help", "close"]
+const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "radio", "export", "midi", "sound", "songbook", "help", "close"]
 const BENDERS := ["flat", "sharp", "down", "up"]
 # In a browser the stick also listens to the page's own touches (see _ready): on some phones
 # a finger's sliding never arrives as a drag here, though its going down and coming up do
@@ -86,6 +86,10 @@ var stick_by_page := false   # a finger the page saw go down on the stick has it
 var put_away := false
 var shown := 1.0
 var view_rect := Rect2(0, 0, 1280, 720)
+# The shelf of instruments can be tucked away by its tab, to see more of him while playing
+# (the number keys still pick an instrument). `seen` is free_rect, eased, so the camera glides
+var shelf_away := false
+var seen := Rect2()
 var toast_text := ""
 var toast_left := 0.0
 var by_hand: Array = []        # the last notes played, for the staff when nothing is looping: [button, seconds since, name]
@@ -161,7 +165,12 @@ func layout(screen: Vector2) -> void:
 	var block := ceili(float(count) / per) * (side + 8.0) - 8.0
 	for k in count:
 		buttons["i%d" % Kit.SHELF[k]] = {"rect": Rect2(start + (k % per) * (side + 8.0), top - block + (k / per) * (side + 8.0), side, side)}
-	free_rect = Rect2(x0, staff.end.y + 4.0, x1 - x0, top - block - 12.0 - staff.end.y) if wide else Rect2(0.0, y, s.x, top - block - 8.0 - y)
+	# The shelf's tab: over its right-hand end when it is out, down where it was when it is away
+	var room := 0.0 if shelf_away else block + 8.0
+	buttons["shelf"] = {"rect": Rect2(minf(x1, start + per * (side + 8.0) - 8.0) - 84.0, top - room - 48.0, 84.0, 44.0)}
+	free_rect = Rect2(x0, staff.end.y + 4.0, x1 - x0, top - room - 56.0 - staff.end.y) if wide else Rect2(0.0, y, s.x, top - room - 52.0 - y)
+	if seen.size == Vector2.ZERO:
+		seen = free_rect
 
 	var cell := Vector2(minf(300.0, (s.x - 64.0) / 2.0), 58.0)
 	var rows := ceili(MENU.size() / 2.0)
@@ -304,6 +313,8 @@ func _hit(at: Vector2) -> String:
 	for id: String in buttons:
 		if id.begins_with("menu:") != menu_open or id == "bpm":
 			continue
+		if shelf_away and Band._numbered(id, "i") >= 0:
+			continue
 		var r: Rect2 = buttons[id].rect
 		if buttons[id].has("round"):
 			if at.distance_to(r.get_center()) <= r.size.x * 0.5 * 1.1:
@@ -348,7 +359,9 @@ func _process(delta: float) -> void:
 	# (a little small and high in it, so that the dancers in front of him are in the picture too)
 	var whole := Rect2(Vector2(size_now.x * 0.1, size_now.y * 0.02), Vector2(size_now.x * 0.8, size_now.y * 0.72))
 	var ease := 1.0 - shown * shown * (3.0 - 2.0 * shown)
-	view_rect = Rect2(free_rect.position.lerp(whole.position, ease), free_rect.size.lerp(whole.size, ease))
+	var glide := 1.0 - exp(-7.0 * delta)
+	seen = Rect2(seen.position.lerp(free_rect.position, glide), seen.size.lerp(free_rect.size, glide))
+	view_rect = Rect2(seen.position.lerp(whole.position, ease), seen.size.lerp(whole.size, ease))
 	toast_left = maxf(0.0, toast_left - delta)
 	_ask_the_page()
 	stick_now = stick_now.lerp(stick if stick_finger >= 0 or stick_by_page else stick_keys, 1.0 - exp(-20.0 * delta))
@@ -368,7 +381,15 @@ func _draw() -> void:
 	_box(well.grow(2.0), Color(WOOD_D, 0.82), 16.0, Color(BRASS, 0.5), 1.5)
 	for id: String in TRANSPORT:
 		_draw_transport(id)
+	# The shelf's tab: an arrow for which way the shelf will go, and what he is playing when it is away
+	var tab: Rect2 = buttons["shelf"].rect
+	var tab_face := _plate(tab, BRASS if shelf_away else WOOD, 12.0, _held("shelf"))
+	_arrow(tab_face.get_center() + Vector2(-18.0 if shelf_away else 0.0, 0), Vector2.UP if shelf_away else Vector2.DOWN, 10.0, INK if shelf_away else CREAM)
+	if shelf_away:
+		_draw_instrument(band.inst, tab_face.get_center() + Vector2(15, 0), 0.5, Kit.INSTRUMENTS[band.inst].color)
 	for i in Kit.INSTRUMENTS.size():
+		if shelf_away:
+			break
 		var r: Rect2 = buttons["i%d" % i].rect
 		var kit := Kit.INSTRUMENTS[i]
 		var mine := i == band.inst
@@ -838,7 +859,6 @@ func _draw_menu() -> void:
 		"export": "Save as MIDI file",
 		"midi": "MIDI keyboard: " + ("on" if band.midi_open else "off"),
 		"sound": "Sound: " + ("on" if band.synth.sound else "off"),
-		"carry": "He carries: " + ("everything" if band.man.carries_all else "what he plays"),
 		"songbook": "Song book",
 		"help": "How to play",
 		"close": "Back",
@@ -853,10 +873,10 @@ func _draw_help() -> void:
 	var w := minf(size_now.x - 40.0, 660.0)
 	var lines := [
 		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. Hold one for as long as you want the note. The stick bends what is sounding: up and down for pitch, sideways for a wobble. Under it are four keys that stay on until you tap them again: flat and sharp move the buttons a half step (so every note can be had), and the two octave keys drop or raise them an octave.",
-		"Along the bottom is everything he carries. Tap one and he plays that. The last is the choir: the little folk line up and sing, and he conducts. On the drums the two octave keys change the kit, to the big low drums or the toys.",
+		"Along the bottom is everything he carries. Tap one and he plays that. The little tab over them tucks them away, to see more of him. The last is the choir: the little folk line up and sing, and he conducts. On the drums the two octave keys change the kit, to the big low drums or the toys.",
 		"Press the red lamp, wait for four ticks, and play. It comes round again, and again. Change instrument and play over it. The eye puts the controls away while it plays, so you can watch him: tap anywhere to have them back. The arrow takes back the last thing you added, the dustbin empties this instrument's track, and A B C D are four loops to move between.",
 		"Some tunes do things. They are in the song book, in the menu.",
-		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves, 1 to 0, - and = for instruments, Space to play, H to hide the controls, R to record, Z to take back.",
+		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves, 1 to 0, - and = for instruments, Space to play, H to hide the controls, X to tuck the instruments away, R to record, Z to take back.",
 	]
 	var h := 84.0 + 50.0
 	for line: String in lines:

@@ -114,16 +114,14 @@ func _run() -> void:
 				await _shot("dance_%d_%d" % [k, f])
 			main.press("play")
 			await _frames(40)
-	# (by name only: him with only what he is playing on him, and the menu that says so)
-	if only.has("bare"):
-		main.press("carry")
-		await _frames(20)
-		await _shot("bare")
-		main.hud.menu_open = true
-		await _frames(3)
-		await _shot("bare_menu")
-		main.hud.menu_open = false
-		main.press("carry")
+	# (by name only: the shelf of instruments out, and tucked away)
+	if only.has("shelf"):
+		await _frames(30)
+		await _shot("shelf_out")
+		main.press("shelf")
+		await _frames(60)
+		await _shot("shelf_away")
+		main.press("shelf")
 	if _wanted("help"):
 		main.hud.help_open = true
 		await _frames(3)

@@ -18,6 +18,7 @@ thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a pho
 - **Loop station**: record (`R`; counts a bar in from a standstill), play/stop (`Space`), undo (`Z`), clear this
   track, mute this track, metronome (`M`), tempo, loop length (1, 2, 4 or 8 bars; doubling repeats what is there),
   and four sections A to D that swap at the end of the loop.
+- **More room**: the tab over the instruments (`X`) tucks them away while you play, to see more of him.
 - **Watching**: the eye (`H`) puts the controls away while the loop plays; a tap anywhere, or the loop stopping,
   brings them back. With the loop going the little folk dance it, a new figure every four bars.
 - **Menu**: tuning (which five notes), key, snap, song mode (plays the sections in turn), the sample songs (three, in

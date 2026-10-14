@@ -10,7 +10,7 @@ extends Node
 const KEYS := {
 	KEY_A: "n0", KEY_S: "n1", KEY_D: "n2", KEY_F: "n3", KEY_G: "n4",
 	KEY_Q: "down", KEY_E: "up", KEY_C: "flat", KEY_V: "sharp",
-	KEY_SPACE: "play", KEY_R: "rec", KEY_Z: "undo", KEY_M: "metro", KEY_H: "hide", KEY_ESCAPE: "close",
+	KEY_SPACE: "play", KEY_R: "rec", KEY_Z: "undo", KEY_M: "metro", KEY_H: "hide", KEY_X: "shelf", KEY_ESCAPE: "close",
 }
 const NUMBER_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUAL]
 const FOV := 38.0
@@ -35,7 +35,7 @@ var camera: Camera3D
 var inst := 0
 var key := 0
 var tuning := 0
-var sample := 0           # which sample song the menu loads next
+var sample := 0           # which sample song the menu loaded last (a first visit has the first)
 var mods := {"flat": false, "sharp": false, "down": false, "up": false}
 const OPPOSITE := {"flat": "sharp", "sharp": "flat", "down": "up", "up": "down"}
 var bend := 0.0           # semitones the stick has everything bent by, this instant
@@ -222,6 +222,9 @@ func press(id: String) -> void:
 			"metro":
 				looper.metronome = not looper.metronome
 				_dirty = true
+			"shelf":
+				hud.shelf_away = not hud.shelf_away
+				_fit()
 			"hide":
 				# (there is nothing to watch with it stopped: it starts the loop too)
 				if not looper.playing and not looper.counting:
@@ -254,10 +257,10 @@ func press(id: String) -> void:
 				looper.chain = not looper.chain
 				_dirty = true
 			"demo":
-				load_demo(sample)
-				hud.menu_open = false
-				hud.toast(SAMPLES[sample] + ". Press play, then join in")
+				# (the menu stays open: the button says which is loaded, and another tap is the next)
 				sample = (sample + 1) % SAMPLES.size()
+				load_demo(sample)
+				hud.toast(SAMPLES[sample] + ". Press play, then join in")
 			"new":
 				new_song()
 				hud.menu_open = false
@@ -270,9 +273,6 @@ func press(id: String) -> void:
 				hud.menu_open = false
 			"midi":
 				open_midi()
-			"carry":
-				man.carry_all(not man.carries_all)
-				_dirty = true
 			"sound":
 				synth.sound = not synth.sound
 				_dirty = true
@@ -521,7 +521,7 @@ func save_game() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({"v": 1, "inst": inst, "key": key, "tuning": tuning, "night": stage.night,
-			"rain": stage.rain, "fireflies": stage.fireflies, "snow": stage.snow, "carnival": stage.carnival, "sound": synth.sound, "carry": man.carries_all, "song": looper.to_dict()}))
+			"rain": stage.rain, "fireflies": stage.fireflies, "snow": stage.snow, "carnival": stage.carnival, "sound": synth.sound, "song": looper.to_dict()}))
 	f.close()
 
 
@@ -540,7 +540,6 @@ func load_game() -> bool:
 	stage.set_snow(bool(data.get("snow", false)))
 	stage.carnival = bool(data.get("carnival", false))
 	synth.sound = bool(data.get("sound", true))
-	man.carries_all = bool(data.get("carry", true))
 	looper.from_dict(data.song)
 	_dirty = false
 	return true

@@ -41,8 +41,6 @@ var acc: Node3D
 var carried: Array[Dictionary] = []
 # The things that go in a hand: [instrument, piece, the hand, how it sits in it, where on him it is kept]
 var in_hand: Array[Array] = []
-# Whether what he is not playing hangs on him, or is put out of sight (the pack on his back stays)
-var carries_all := true
 var hand_at: Array[Vector3] = [Vector3.ZERO, Vector3.ZERO]
 var strike: Array[float] = [0.0, 0.0]
 var pops := {}
@@ -152,17 +150,11 @@ func choose(which: int, at_once := false) -> void:
 		if piece.get_parent() != to:
 			_give(piece, to)
 			piece.transform = item[3] if mine else item[4]
-		piece.visible = mine or carries_all
 	for item in carried:
 		var mine: bool = item.inst == inst
-		item.node.visible = mine or (carries_all and item.stow != null)
+		item.node.visible = mine or item.stow != null
 		if at_once:
 			item.node.transform = item.hold if mine else (item.stow if item.stow != null else item.hold)
-
-
-func carry_all(on: bool) -> void:
-	carries_all = on
-	choose(inst)
 
 
 # A note has sounded: his own playing (`live`) moves his hands, and either way the thing that
