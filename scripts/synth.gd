@@ -6,7 +6,7 @@ extends Node
 const VOICES := 28
 
 var samples: Array[Dictionary] = []   # for each instrument, the note a sample is of -> the sample
-var drums: Array[AudioStreamWAV] = []
+var drums := {}                       # for each kit of hits (the drums, the percussion), its samples
 var ticks: Array[AudioStreamWAV] = []
 var voices: Array[Dictionary] = []
 var next_id := 1
@@ -22,8 +22,9 @@ func _ready() -> void:
 		for base: int in kit.bases:
 			set[base] = load("res://sounds/%s_%d.res" % [kit.id, base])
 		samples.append(set)
-	for i in Kit.DRUM_NAMES.size():
-		drums.append(load("res://sounds/drums_%d.res" % i))
+	for inst in Kit.INSTRUMENTS.size():
+		if Kit.is_drums(inst):
+			drums[inst] = range(Kit.hit_names(inst).size()).map(func(i: int) -> AudioStreamWAV: return load(Kit.hit_path(inst, i)))
 	for i in 2:
 		ticks.append(load("res://sounds/tick_%d.res" % i))
 	_loop_in_the_browser()
@@ -75,7 +76,7 @@ func play(inst: int, b: int, n: int, loud := 1.0) -> int:
 	var stream: AudioStreamWAV
 	var pitch := 1.0
 	if Kit.is_drums(inst):
-		stream = drums[Kit.drum(b, n)]
+		stream = drums[inst][Kit.drum(b, n)]
 		pitch = pow(2.0, Kit.drum_bend(n) / 12.0)
 	else:
 		var base: int = kit.bases[0]

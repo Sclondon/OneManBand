@@ -4,6 +4,8 @@ class_name MidiFile
 
 const PPQ := 480
 const DRUM_NOTES := [36, 38, 42, 45, 49, 35, 37, 46, 41, 51, 39, 76, 54, 56, 55]
+# (General MIDI has no surdo, cajon or chimes: a floor tom, a bass drum and the bell tree stand in)
+const PERCUSSION_NOTES := [74, 79, 54, 70, 67, 64, 60, 41, 65, 35, 75, 81, 58, 72, 84]
 
 
 static func write(looper: Looper) -> PackedByteArray:
@@ -36,7 +38,7 @@ static func write(looper: Looper) -> PackedByteArray:
 			for note: Dictionary in looper.sections[order[k]][inst]:
 				if note.t >= looper.length():
 					continue
-				var key: int = DRUM_NOTES[Kit.drum(note.b, note.n)] if drums else clampi(note.n, 0, 127)
+				var key: int = (PERCUSSION_NOTES if inst == Kit.PERCUSSION else DRUM_NOTES)[Kit.drum(note.b, note.n)] if drums else clampi(note.n, 0, 127)
 				var on := k * span + int(note.t * PPQ)
 				var off := on + (60 if drums else maxi(30, int(note.d * PPQ)))
 				events.append([on, 1, key])

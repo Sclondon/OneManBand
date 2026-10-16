@@ -52,6 +52,7 @@ func _initialize() -> void:
 				"voices": [[1, 0, 1.0], [1, 3, 0.6], [2, -2, 0.25]]})
 	for m: int in [24, 36, 48, 60, 72, 84, 96]:
 		_hammered("piano_%d" % m, m)
+	_percussion()
 	print("sounds rendered")
 	quit()
 
@@ -395,6 +396,189 @@ func _save(file: String, out: PackedFloat32Array, level: float, loop_from := -1)
 		wav.loop_begin = loop_from
 		wav.loop_end = out.size()
 	ResourceSaver.save(wav, "res://sounds/%s.res" % file)
+
+
+# --- The hand percussion ----------------------------------------------------------------
+# Three kits of five, in the order of Kit.PERCUSSION_NAMES: shaken and scraped, skins, bright things
+
+func _percussion() -> void:
+	_save("percussion_0", _guiro(), 0.75)                                                    # Guiro
+	_save("percussion_1", _cuica(520.0, 0.42), 0.7)                                          # Cuica
+	_save("percussion_2", _tambourine(), 0.6)                                                # Tambourine
+	_save("percussion_3", _maracas(), 0.55)                                                  # Maracas
+	_save("percussion_4", _agogo(), 0.6)                                                     # Agogo
+	_save("percussion_5", _room(_thump(0.55, 250.0, 196.0, 0.012, 0.22, 0.35, 1.15)), 0.85)  # Conga
+	_save("percussion_6", _room(_thump(0.25, 440.0, 392.0, 0.008, 0.09, 0.45, 1.2)), 0.8)    # Bongo
+	_save("percussion_7", _room(_thump(1.1, 105.0, 58.0, 0.03, 0.5, 0.25, 1.5), 0.25), 0.95) # Surdo
+	_save("percussion_8", _timbale(), 0.75)                                                  # Timbale
+	_save("percussion_9", _cajon(), 0.85)                                                    # Cajon
+	_save("percussion_10", _claves(), 0.75)                                                  # Claves
+	_save("percussion_11", _triangle(), 0.5)                                                 # Triangle
+	_save("percussion_12", _vibraslap(), 0.6)                                                # Vibraslap
+	_save("percussion_13", _whistle(), 0.5)                                                  # Whistle
+	_save("percussion_14", _chimes(), 0.5)                                                   # Chimes
+
+
+# A stick drawn down the ridges of a gourd: a run of little ticks, quickening and then slowing,
+# each one a knock of hollow wood
+func _guiro() -> PackedFloat32Array:
+	var out := _blank(0.42)
+	var at := 0.0
+	while at < 0.34:
+		var start := int(at * RATE)
+		var hz := 1700.0 + 500.0 * sin(at * 9.0)
+		for i in range(start, mini(start + int(0.012 * RATE), out.size())):
+			var t := float(i - start) / RATE
+			out[i] += (noise.randf_range(-1.0, 1.0) * 0.6 + sin(TAU * hz * t)) * exp(-t / 0.0025) * (0.6 + 0.4 * sin(at * 9.0))
+		at += 0.009 + 0.006 * absf(cos(at * 9.0))
+	_high(out, 900.0)
+	_low(out, 6000.0)
+	_fade(out, 0.0, 0.03)
+	return out
+
+
+# A friction drum, a stick rubbed inside it: a voice that whoops up and falls back, nasal
+func _cuica(hz: float, seconds: float) -> PackedFloat32Array:
+	var out := _blank(seconds)
+	var phase := 0.0
+	for i in out.size():
+		var t := float(i) / RATE
+		var u := t / seconds
+		var f := hz * (1.0 + 0.55 * sin(PI * minf(u * 1.4, 1.0)) - 0.15 * u)
+		phase += TAU * f / RATE
+		var loud := minf(1.0, t / 0.015) * (1.0 - u) * (1.0 - u * 0.5)
+		out[i] = (sin(phase) + 0.45 * sin(phase * 2.0) + 0.25 * sin(phase * 3.0) + 0.12 * sin(phase * 4.0)) * loud
+	_fade(out, 0.0, 0.04)
+	return out
+
+
+# A tambourine struck: the skin's thump and the jingles clashing and ringing on
+func _tambourine() -> PackedFloat32Array:
+	var out := _blank(0.5)
+	var jingles := _blank(0.5)
+	for i in out.size():
+		var t := float(i) / RATE
+		var ring := 0.0
+		for hz: float in [5200.0, 6100.0, 7300.0, 8600.0, 9900.0]:
+			ring += signf(sin(TAU * hz * t + hz))
+		jingles[i] = (ring / 5.0 * 0.5 + noise.randf_range(-1.0, 1.0) * 0.6) * (exp(-t / 0.13) + 0.5 * exp(-t / 0.02))
+		out[i] = sin(TAU * 210.0 * t) * 0.6 * exp(-t / 0.03)
+	_high(jingles, 4000.0)
+	for i in out.size():
+		out[i] += jingles[i]
+	_fade(out, 0.0, 0.08)
+	return out
+
+
+# Seeds thrown against the shell of a gourd: a soft swish and a hard rattle on the end of it
+func _maracas() -> PackedFloat32Array:
+	var out := _blank(0.14)
+	for i in out.size():
+		var t := float(i) / RATE
+		var loud := minf(1.0, t / 0.03) * 0.35 + (exp(-(t - 0.04) / 0.018) if t >= 0.04 else 0.0)
+		out[i] = noise.randf_range(-1.0, 1.0) * loud
+	_high(out, 5000.0)
+	_high(out, 5000.0)
+	_fade(out, 0.0, 0.03)
+	return out
+
+
+# The high bell of an agogo: two partials that do not agree, ringing a while
+func _agogo() -> PackedFloat32Array:
+	var out := _blank(0.5)
+	for i in out.size():
+		var t := float(i) / RATE
+		out[i] = (sin(TAU * 930.0 * t) + 0.5 * sin(TAU * 2480.0 * t) * exp(-t / 0.06) + 0.25 * sin(TAU * 4170.0 * t) * exp(-t / 0.03)) \
+				* (exp(-t / 0.16) + 0.4 * exp(-t / 0.01)) + noise.randf_range(-1.0, 1.0) * 0.3 * exp(-t / 0.0015)
+	_fade(out, 0.0, 0.06)
+	return out
+
+
+# A timbale: a high, tight skin in a steel shell that rings on after it
+func _timbale() -> PackedFloat32Array:
+	var out := _thump(0.6, 420.0, 340.0, 0.01, 0.12, 0.6, 1.2)
+	for i in out.size():
+		var t := float(i) / RATE
+		out[i] += (sin(TAU * 1170.0 * t) * 0.3 + sin(TAU * 1890.0 * t) * 0.2 + sin(TAU * 3020.0 * t) * 0.12) * exp(-t / 0.22)
+	return _room(out)
+
+
+# A wooden box sat on and slapped: a low boom and the wires inside it buzzing
+func _cajon() -> PackedFloat32Array:
+	var out := _thump(0.4, 150.0, 82.0, 0.012, 0.11, 0.6, 1.4)
+	var wires := _snare(0.4, 300.0, 0.01, 0.07)
+	for i in out.size():
+		out[i] += wires[i] * 0.35
+	return _room(out)
+
+
+# Two sticks of hard wood knocked together
+func _claves() -> PackedFloat32Array:
+	var out := _blank(0.16)
+	for i in out.size():
+		var t := float(i) / RATE
+		out[i] = sin(TAU * 2480.0 * t) * exp(-t / 0.035) + 0.3 * sin(TAU * 6810.0 * t) * exp(-t / 0.008)
+	_fade(out, 0.0, 0.03)
+	return out
+
+
+# A steel triangle: many high partials, out of tune with each other, ringing a long time
+func _triangle() -> PackedFloat32Array:
+	var out := _blank(1.6)
+	var parts := [[1830.0, 1.0, 0.9], [4930.0, 0.5, 0.6], [6720.0, 0.4, 0.5], [8410.0, 0.3, 0.35], [10150.0, 0.2, 0.25], [11900.0, 0.12, 0.2]]
+	for i in out.size():
+		var t := float(i) / RATE
+		var v := 0.0
+		for part: Array in parts:
+			v += sin(TAU * float(part[0]) * t) * float(part[1]) * exp(-t / float(part[2]))
+		out[i] = v + noise.randf_range(-1.0, 1.0) * 0.4 * exp(-t / 0.001)
+	_fade(out, 0.0, 0.3)
+	return out
+
+
+# A vibraslap: a wooden ball knocks the box of loose teeth, and they rattle on, slowing
+func _vibraslap() -> PackedFloat32Array:
+	var out := _blank(0.9)
+	var at := 0.0
+	var gap := 0.022
+	while at < 0.82:
+		var start := int(at * RATE)
+		var loud := exp(-at / 0.3)
+		for i in range(start, mini(start + int(0.02 * RATE), out.size())):
+			var t := float(i - start) / RATE
+			out[i] += (sin(TAU * 2900.0 * t) + 0.6 * sin(TAU * 4400.0 * t) + noise.randf_range(-0.5, 0.5)) * exp(-t / 0.004) * loud
+		at += gap
+		gap *= 1.04
+	_high(out, 1500.0)
+	_fade(out, 0.0, 0.08)
+	return out
+
+
+# A samba whistle, blown hard: a shrill note with the pea in it trilling
+func _whistle() -> PackedFloat32Array:
+	var out := _blank(0.42)
+	var phase := 0.0
+	for i in out.size():
+		var t := float(i) / RATE
+		var f := 2750.0 * (1.0 + 0.035 * sin(TAU * 26.0 * t))
+		phase += TAU * f / RATE
+		var loud := minf(1.0, t / 0.02) * (1.0 - smoothstep(0.32, 0.42, t))
+		out[i] = (sin(phase) + 0.12 * sin(phase * 2.0)) * loud * (0.8 + 0.2 * sin(TAU * 26.0 * t)) + noise.randf_range(-1.0, 1.0) * 0.1 * loud
+	return out
+
+
+# A mark tree: a hand drawn along a row of little hanging rods, each pinging a little higher
+func _chimes() -> PackedFloat32Array:
+	var out := _blank(1.7)
+	for k in 14:
+		var start := int((k * 0.045 + noise.randf_range(0.0, 0.01)) * RATE)
+		var hz := 2800.0 * pow(2.0, k / 9.0)
+		for i in range(start, out.size()):
+			var t := float(i - start) / RATE
+			var over := 0.3 * sin(TAU * hz * 2.76 * t) * exp(-t / 0.08) if hz * 2.76 < 15000.0 else 0.0
+			out[i] += (sin(TAU * hz * t) + over) * exp(-t / 0.45) * 0.4
+	_fade(out, 0.0, 0.3)
+	return out
 
 
 # --- What the drums are made of ---------------------------------------------------------

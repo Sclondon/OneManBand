@@ -556,6 +556,25 @@ def build_bandsman():
 
     hb.resize(0.75)
 
+    # A tambourine, held by its rim: a wooden hoop with a skin across it and pairs of brass
+    # jingles in slots round it (the hand is at the origin, the hoop out along -y)
+    tb = Part("tambourine")
+    tb.cyl((0, -0.17, -0.025), (0, -0.17, 0.025), 0.15, 0.15, WOOD, BROWN, seg=12, caps=False)
+    tb.cyl((0, -0.17, -0.025), (0, -0.17, 0.025), 0.135, 0.135, BROWN, seg=12, caps=False, facing=-1)
+    tb.cyl((0, -0.17, 0.02), (0, -0.17, 0.026), 0.14, 0.14, CREAM, seg=12)
+    for i in range(6):
+        a = math.pi * 2.0 * (i + 0.5) / 6.0
+        x, y = math.sin(a) * 0.152, -0.17 + math.cos(a) * 0.152
+        tb.cyl((x, y, -0.012), (x, y, 0.012), 0.026, 0.026, GOLD, GOLD_D, seg=7)
+    tb.ball((0, -0.02, 0), (0.03, 0.03, 0.03), WOOD, BROWN, seg=5, rings=3)
+
+    # A maraca: a painted gourd on a handle
+    mr = Part("maraca")
+    mr.cyl((0, 0.06, 0), (0, -0.09, 0), 0.018, 0.024, BROWN_D, BROWN, seg=5)
+    mr.ball((0, -0.17, 0), (0.075, 0.095, 0.075), RED, RED_D, seg=8, rings=6)
+    for z in (-0.03, 0.03):
+        mr.cyl((0, -0.17, z - 0.004), (0, -0.17, z + 0.004), 0.078, 0.078, GOLD, seg=8)
+
     # Mallets with heads like toffee apples
     st = Part("stick")
     st.cyl((0, 0.06, 0), (0, -0.36, 0), 0.016, 0.012, CREAM, seg=5)

@@ -598,7 +598,7 @@ func _dot(at: Vector2, r: float, b: int, alpha: float, label := "") -> void:
 # What is written on a note: its name, or the first letter of the drum
 func _label(inst: int, b: int, n: int) -> String:
 	if Kit.is_drums(inst):
-		return Kit.DRUM_NAMES[Kit.drum(b, n)].left(2)
+		return Kit.hit_names(inst)[Kit.drum(b, n)].left(2)
 	return Kit.note_name(n)
 
 
@@ -726,7 +726,8 @@ func _draw_pad(b: int) -> void:
 	_oval(c + Vector2(0, -rad * 0.45), Vector2(rad * 0.56, rad * 0.24), Color(1, 1, 1, 0.3))
 	var ink := col.darkened(0.72)
 	if Kit.is_drums(band.inst):
-		_text(c + Vector2(0, 2), Kit.DRUM_NAMES[Kit.drum(b, band.pad_note(b))], int(rad * 0.44), ink)
+		var hit: String = Kit.hit_names(band.inst)[Kit.drum(b, band.pad_note(b))]
+		_text(c + Vector2(0, 2), hit, int(rad * (0.44 if hit.length() <= 6 else 0.36)), ink)
 	else:
 		var label := Kit.note_name(band.pad_note(b))
 		_text(c + Vector2(0, 3), label, int(rad * (1.0 if label.length() == 1 else 0.78)), ink)
@@ -775,14 +776,19 @@ func _draw_bender(id: String, c: Vector2, ink: Color) -> void:
 					c + Vector2(4, 11), c + Vector2(-9, 18)], ink, 4.0, true)
 		"up":
 			_arrow(c + Vector2(-27, -2), Vector2.UP, 11.0, ink)
-			_text(c + Vector2(13, 0), "toys" if Kit.is_drums(band.inst) else _octaves(id), 15, Color(ink, 0.85))
+			_text(c + Vector2(13, 0), _octaves(id), 15, Color(ink, 0.85))
 		"down":
 			_arrow(c + Vector2(-27, 1), Vector2.DOWN, 11.0, ink)
-			_text(c + Vector2(13, 0), "big" if Kit.is_drums(band.inst) else _octaves(id), 15, Color(ink, 0.85))
+			_text(c + Vector2(13, 0), _octaves(id), 15, Color(ink, 0.85))
 
 
-# What an octave key says on it: two octaves once it has been tapped twice
+# What an octave key says on it: two octaves once it has been tapped twice, or on a kit of hits,
+# the kit it changes to
 func _octaves(id: String) -> String:
+	if band.inst == Kit.DRUMS:
+		return "toys" if id == "up" else "big"
+	if band.inst == Kit.PERCUSSION:
+		return "bright" if id == "up" else "skins"
 	return "2 octaves" if band.mods[id] and band.two else "octave"
 
 
@@ -879,6 +885,19 @@ func _draw_instrument(i: int, c: Vector2, k: float, col: Color) -> void:
 				draw_line(o + (along * t + Vector2(-3.5, -3.5)) * k, o + (along * t + Vector2(3.5, 3.5)) * k, hole, 3.2 * k)
 			draw_circle(o + Vector2(7, 7) * k, 2.2 * k, BRASS)
 			draw_line(o - along * 7.0 * k, o + along * 40.0 * k, Color(pale, 0.9), 1.0 * k, true)
+		Kit.PERCUSSION:
+			# A tambourine with its jingles, and a maraca leant against it
+			var t := c + Vector2(-6, 2) * k
+			draw_circle(t, 18.0 * k, dark)
+			draw_circle(t, 15.5 * k, CREAM)
+			draw_arc(t, 16.5 * k, 0.0, TAU, 24, col, 3.0 * k, true)
+			for j in 6:
+				var a := TAU * (j + 0.5) / 6.0
+				draw_circle(t + Vector2(sin(a), cos(a)) * 16.5 * k, 3.4 * k, BRASS)
+			draw_line(c + Vector2(6, 22) * k, c + Vector2(14, 4) * k, dark, 4.0 * k, true)
+			_oval(c + Vector2(17, -4) * k, Vector2(9, 11) * k, dark)
+			_oval(c + Vector2(17, -4) * k, Vector2(7.4, 9.4) * k, RED)
+			draw_line(c + Vector2(10, -6) * k, c + Vector2(24, -2) * k, BRASS, 2.0 * k, true)
 		Kit.PIANO:
 			# A run of keys, white and black, in a black case with its lid propped up behind them
 			draw_colored_polygon([c + Vector2(-22, -6) * k, c + Vector2(-16, -22) * k, c + Vector2(22, -22) * k, c + Vector2(22, -6) * k], hole)
@@ -1022,7 +1041,7 @@ func _draw_help() -> void:
 		"Press the red lamp, wait for four ticks, and play. It comes round again, and again. Change instrument and play over it. The eye puts the controls away while it plays, so you can watch him: tap anywhere to have them back. The arrow takes back the last thing you added, the dustbin empties this instrument's track, and A B C D are four loops to move between.",
 		"The pencil writes notes in one at a time instead: each goes in at the gold cursor, as long as the length key says, and the cursor moves on. Hold buttons together for a chord. Tap the sheet to move the cursor; Rest leaves a gap and Erase takes out what is there. A MIDI keyboard writes in too. The menu saves the song as MIDI or as sound.",
 		"Some tunes do things. They are in the song book, in the menu.",
-		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves (twice for two), 1 to 0, - = [ ] and \\ for instruments, Space to play, H to hide the controls, X to tuck the instruments away, comma and full stop for the tempo, R to record, Z to take back, P for the pencil (then left and right for the cursor, Enter for a rest, Backspace to erase, L for the length).",
+		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves (twice for two), 1 to 0, - = [ ] \\ and ' for instruments, Space to play, H to hide the controls, X to tuck the instruments away, comma and full stop for the tempo, R to record, Z to take back, P for the pencil (then left and right for the cursor, Enter for a rest, Backspace to erase, L for the length).",
 	]
 	# (in smaller print until it fits on the screen)
 	var px := 18

@@ -29,6 +29,7 @@ const REACH := [
 	[Vector3(0.32, 0.43, 0.3), Vector3(-0.04, 0.27, 0.33)],
 	[Vector3(0.42, 0.29, 0.3), Vector3(-0.12, 0.09, 0.34)],
 	[Vector3(0.16, 0.075, 0.32), Vector3(-0.08, 0.075, 0.32)],
+	[Vector3(0.3, 0.3, 0.36), Vector3(-0.28, 0.26, 0.36)],
 ]
 
 var stage: Stage
@@ -129,6 +130,12 @@ func _ready() -> void:
 	# (the baton he conducts the choir with, tucked in his belt the rest of the time)
 	in_hand.append([Kit.CHOIR, p.baton, p.hand_R, Transform3D(Basis(Vector3.RIGHT, PI / 2.0 - 1.0), Vector3(0.0, -0.05, 0.0)),
 			Transform3D(Basis(Vector3.RIGHT, PI / 2.0) * Basis(Vector3.UP, 0.2), Vector3(0.3, 0.02, 0.08))])
+	# (the hand percussion: a tambourine in his left hand and a maraca in his right; put away, the
+	# tambourine hangs on the face of the big drum and the maraca is stuck in the back of his belt)
+	in_hand.append([Kit.PERCUSSION, p.tambourine, p.hand_L, Transform3D(Basis(Vector3.RIGHT, PI / 2.0 - 0.3) * Basis(Vector3.BACK, PI / 2.0), Vector3(0.0, -0.04, 0.0)),
+			Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3(-0.3, 0.78, -0.12))])
+	in_hand.append([Kit.PERCUSSION, p.maraca, p.hand_R, Transform3D(Basis(Vector3.RIGHT, PI / 2.0 - 0.3), Vector3(0.0, -0.04, 0.0)),
+			Transform3D(Basis(Vector3.BACK, 0.4), Vector3(0.1, 0.0, -0.3))])
 	# Two of each thing that takes a hand apiece
 	for piece: String in ["bell_hand", "stick"]:
 		var other: Node3D = p[piece].duplicate()
@@ -190,7 +197,7 @@ func on_note(which: int, b: int, live: bool) -> void:
 			half_to = 0.2 if half_to < 0.14 else 0.08
 		Kit.GUITAR, Kit.UKULELE, Kit.ELECTRIC:
 			strike[1] = 1.0
-		Kit.BELLS:
+		Kit.BELLS, Kit.PERCUSSION:
 			strike[turn] = 1.0
 			turn = 1 - turn
 		Kit.DRUMS:
@@ -321,7 +328,7 @@ func _hand_goal(h: int) -> Vector3:
 				var neck: Node3D = p.ukulele if inst == Kit.UKULELE else p.electric
 				var top := 0.48 if inst == Kit.UKULELE else 0.62
 				at = neck.transform * Vector3(top - 0.045 * last_pad, -0.02, 0.06)
-		Kit.BELLS:
+		Kit.BELLS, Kit.PERCUSSION:
 			at += Vector3(0.0, -0.12, 0.05) * strike[h] + Vector3(0.0, 0.02 * sin(time * 2.0 + h), 0.0)
 		Kit.DRUMS:
 			at += Vector3(0.0, 0.07 - 0.1 * strike[h], 0.0)
@@ -386,6 +393,8 @@ func _piece(which: int, b: int) -> Node3D:
 			return p.tuba
 		Kit.BELLS:
 			return p.pack_bells
+		Kit.PERCUSSION:
+			return p.tambourine if posmod(b, 2) == 0 else p.maraca
 		Kit.ORGAN:
 			return p.organ
 		Kit.PIANO:

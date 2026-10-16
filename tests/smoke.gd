@@ -36,7 +36,7 @@ func _run() -> void:
 	var looper := main.looper
 	_check(looper.has_notes(0, Kit.TUBA) and looper.has_notes(0, Kit.DRUMS), "a first visit gets the house band")
 	_check(not looper.has_notes(0, Kit.PICCOLO), "with the piccolo left for the player")
-	for id: String in ["n0", "n4", "down", "up", "i6", "i12", "i13", "i14", "rec", "step", "play", "s3", "menu"]:
+	for id: String in ["n0", "n4", "down", "up", "i6", "i12", "i13", "i14", "i15", "rec", "step", "play", "s3", "menu"]:
 		var r: Rect2 = main.hud.buttons[id].rect
 		_check(Rect2(Vector2.ZERO, main.hud.size_now).encloses(r), "%s is on the screen" % id)
 
@@ -217,6 +217,20 @@ func _run() -> void:
 		await _frames(2)
 		_check(main.held.has(2), "and plays")
 		main.release("n2")
+	# The hand percussion: three kits of five, changed by the octave keys, as the drums are
+	main.press("i%d" % Kit.PERCUSSION)
+	_check(main.synth.drums[Kit.PERCUSSION].size() == 15 and main.synth.drums[Kit.PERCUSSION].all(func(s: AudioStreamWAV) -> bool: return s != null),
+			"the percussion has fifteen sounds")
+	var kits := []
+	for id: String in ["", "down", "up"]:
+		if id != "":
+			main.press(id)
+		kits.append(Kit.hit_names(Kit.PERCUSSION)[Kit.drum(0, main.pad_note(0))])
+	main.press("up")
+	_check(kits == ["Guiro", "Conga", "Claves"] and not main.mods.up and not main.two, "the octave keys change its kit (%s)" % ", ".join(kits))
+	main.press("n2")
+	_check(main.held.has(2) and main.man.inst == Kit.PERCUSSION, "and it plays in his hands")
+	main.release("n2")
 	main.press("i%d" % Kit.ELECTRIC)
 	for id: String in ["down", "down", "flat"]:
 		main.press(id)

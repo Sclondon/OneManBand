@@ -12,11 +12,13 @@ thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a pho
   Under it are four keys that stay on until tapped again: flat and sharp move the five buttons a half step
   (`C`, `V`), so every note can be had, and two drop or raise an octave (`Q`, `E`); tapped a second time they go
   two octaves, and a third puts them out.
-- **Instruments**: piccolo, trumpet, viola, accordion, guitar, ukulele, electric guitar, piano, organ, theremin, tuba, bells, drums, the choir (the
-  satyrs and imps line up and sing, and he conducts) and a bassoon. Keys `1` to `0`, `-`, `=`, `[`, `]` and `\`. The
+- **Instruments**: piccolo, trumpet, viola, accordion, guitar, ukulele, electric guitar, piano, organ, theremin, tuba, bells, drums, hand percussion, the choir (the
+  satyrs and imps line up and sing, and he conducts) and a bassoon. Keys `1` to `0`, `-`, `=`, `[`, `]`, `\` and `'`. The
   electric holds a note for as long as it is held; the piano dies away by itself and stops when let go. On the drums the five buttons are kick,
   snare, hat, tom and crash; the low octave key changes them to the big drums (boom, rim, open hat, floor tom, ride) and
-  the high one to the toys (clap, block, shake, bell, splash).
+  the high one to the toys (clap, block, shake, bell, splash). The hand percussion goes the same way: guiro, cuica,
+  tambourine, maracas and agogo; the skins (conga, bongo, surdo, timbale, cajon); and the bright things (claves,
+  triangle, vibraslap, samba whistle, chimes). He shakes a tambourine and a maraca for it.
 - **Loop station**: record (`R`; counts a bar in from a standstill), play/stop (`Space`), undo (`Z`), clear this
   track, mute this track, metronome (`M`), tempo (`,` and `.`; a tap is 1 bpm, holding runs it, then in fives), loop length (1, 2, 4 or 8 bars; doubling repeats what is there),
   and four sections A to D that swap at the end of the loop.

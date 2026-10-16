@@ -153,7 +153,7 @@ func _play(inst: int, b: int, n: int, start: float, held: float) -> void:
 	var path: String
 	var pitch := 1.0
 	if Kit.is_drums(inst):
-		path = "res://sounds/drums_%d.res" % Kit.drum(b, n)
+		path = Kit.hit_path(inst, Kit.drum(b, n))
 		pitch = pow(2.0, Kit.drum_bend(n) / 12.0)
 	else:
 		var base: int = kit.bases[0]

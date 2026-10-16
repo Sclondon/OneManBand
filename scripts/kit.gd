@@ -16,6 +16,7 @@ const VIOLA := 9
 const UKULELE := 12
 const ELECTRIC := 13
 const PIANO := 14
+const PERCUSSION := 15
 
 # `base` is the note the buttons count up from in the key of C, `bases` the notes there are
 # samples of, `held` whether a note lasts as long as the button (and `release` how long it takes
@@ -41,15 +42,21 @@ const INSTRUMENTS: Array[Dictionary] = [
 	{"id": "electric", "name": "Electric", "base": 48, "bases": [28, 40, 52, 64, 76, 88], "held": true, "release": 0.12, "gm": 29, "db": -9.0, "color": Color("e8364f")},
 	# (struck, so a note dies away by itself, but is stopped short when the key is let go)
 	{"id": "piano", "name": "Piano", "base": 60, "bases": [24, 36, 48, 60, 72, 84, 96], "held": true, "release": 0.15, "gm": 0, "db": -6.0, "color": Color("f2efe6")},
+	# (hand percussion: a kit of fifteen things to shake, scrape and tap, the way the drums are)
+	{"id": "percussion", "name": "Percussion", "base": 0, "bases": [], "held": false, "gm": 0, "db": -4.0, "color": Color("f2a93b")},
 ]
 
 # The order they are laid out in for picking, and that the number keys go in
-const SHELF: Array[int] = [PICCOLO, TRUMPET, VIOLA, ACCORDION, GUITAR, UKULELE, ELECTRIC, PIANO, ORGAN, THEREMIN, TUBA, BELLS, DRUMS, CHOIR, BASSOON]
+const SHELF: Array[int] = [PICCOLO, TRUMPET, VIOLA, ACCORDION, GUITAR, UKULELE, ELECTRIC, PIANO, ORGAN, THEREMIN, TUBA, BELLS, DRUMS, PERCUSSION, CHOIR, BASSOON]
 
 # Three kits of five drums: the trap set, the big low ones (with the low octave key on) and the
 # toys (with the high one). A drum's note says which kit it is from and how far it is bent:
 # DRUM_KIT down or up for the kit, and whatever is left over in semitones.
 const DRUM_NAMES := ["Kick", "Snare", "Hat", "Tom", "Crash", "Boom", "Rim", "Open", "Floor", "Ride", "Clap", "Block", "Shake", "Bell", "Splash"]
+# The hand percussion the same way: shaken and scraped, then skins (low key), then the bright
+# little things (high key)
+const PERCUSSION_NAMES := ["Guiro", "Cuica", "Tambo", "Maracas", "Agogo", "Conga", "Bongo", "Surdo", "Timbale", "Cajon",
+		"Claves", "Triangle", "Vibra", "Whistle", "Chimes"]
 const DRUM_KIT := 40
 
 
@@ -57,7 +64,7 @@ static func drum_kit(n: int) -> int:
 	return clampi(roundi(n / float(DRUM_KIT)), -1, 1)
 
 
-# Which of DRUM_NAMES button `b` is, for a note `n`
+# Which of the hits (DRUM_NAMES, or PERCUSSION_NAMES) button `b` is, for a note `n`
 static func drum(b: int, n: int) -> int:
 	var kit := drum_kit(n)
 	return posmod(b, 5) + (0 if kit == 0 else (5 if kit < 0 else 10))
@@ -96,5 +103,16 @@ static func note_name(n: int) -> String:
 	return NOTE_NAMES[posmod(n, 12)]
 
 
+# Whether `inst` is a kit of things to hit (the drums, the hand percussion) rather than notes
 static func is_drums(inst: int) -> bool:
-	return inst == DRUMS
+	return inst == DRUMS or inst == PERCUSSION
+
+
+# What the hits of kit-instrument `inst` are called, in the order of its samples
+static func hit_names(inst: int) -> Array:
+	return PERCUSSION_NAMES if inst == PERCUSSION else DRUM_NAMES
+
+
+# The sample of hit number `index` (as drum() gives it) of kit-instrument `inst`
+static func hit_path(inst: int, index: int) -> String:
+	return "res://sounds/%s_%d.res" % [INSTRUMENTS[inst].id, index]
