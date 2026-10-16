@@ -40,6 +40,18 @@ func _run() -> void:
 		var r: Rect2 = main.hud.buttons[id].rect
 		_check(Rect2(Vector2.ZERO, main.hud.size_now).encloses(r), "%s is on the screen" % id)
 
+	# The shelf, kind with kind: every instrument on it, none on top of another, one tray to a kind in a row
+	var clash := []
+	for i in Kit.INSTRUMENTS.size():
+		var r: Rect2 = main.hud.buttons["i%d" % i].rect
+		if not Rect2(Vector2.ZERO, main.hud.size_now).encloses(r):
+			clash.append(Kit.INSTRUMENTS[i].name + " off the screen")
+		for j in range(i + 1, Kit.INSTRUMENTS.size()):
+			if r.intersects(main.hud.buttons["i%d" % j].rect):
+				clash.append("%s on %s" % [Kit.INSTRUMENTS[i].name, Kit.INSTRUMENTS[j].name])
+	_check(clash.is_empty() and Kit.SHELF.size() == Kit.INSTRUMENTS.size(), "the shelf holds every instrument, apart (%s)" % ", ".join(clash))
+	_check(main.hud.trays.size() >= Kit.SHELF_GROUPS.size(), "on a tray for each kind (%d)" % main.hud.trays.size())
+
 	# Notes: a finger, two at once, a slide, a key, and the benders
 	await _touch("n2", true)
 	_check(main.held.has(2), "a finger on a button holds its note")
@@ -74,7 +86,30 @@ func _run() -> void:
 	_check(main.pad_note(0) == 75, "sharp lifts a button a half step")
 	await _touch("sharp", true, 1)
 	await _touch("sharp", false, 1)
-	_check(main.pad_note(0) == 74, "and a second tap turns it off")
+	_check(main.pad_note(0) == 76, "a second tap makes it a whole step")
+	await _touch("sharp", true, 1)
+	await _touch("sharp", false, 1)
+	_check(main.pad_note(0) == 74 and not main.double, "and a third turns it off")
+	# Between the tunings' own notes, flat and sharp (once or twice) reach every note there is
+	var missing := []
+	for t in Kit.TUNINGS.size():
+		main.tuning = t
+		var have := {}
+		for mod: String in ["", "flat", "sharp"]:
+			for twice: bool in [false, true]:
+				main.mods.flat = mod == "flat"
+				main.mods.sharp = mod == "sharp"
+				main.double = twice
+				for b in 5:
+					have[posmod(main.pad_note(b), 12)] = true
+		for n in 12:
+			if not have.has(n):
+				missing.append("%s %s" % [Kit.TUNINGS[t].name, Kit.note_name(n)])
+	main.tuning = 0
+	main.mods.flat = false
+	main.mods.sharp = false
+	main.double = false
+	_check(missing.is_empty(), "every note can be had in every tuning (missing: %s)" % ", ".join(missing))
 	# The stick: a finger on it, pushed to the top, bends a held note up a whole tone
 	var hub: Vector2 = main.hud.stick_at * main.hud.fit
 	var e := InputEventScreenTouch.new()
@@ -235,11 +270,11 @@ func _run() -> void:
 	for id: String in ["down", "down", "flat"]:
 		main.press(id)
 	var lowest := main.pad_note(0)
-	for id: String in ["down", "flat", "up", "up", "sharp"]:
+	for id: String in ["down", "flat", "flat", "up", "up", "sharp"]:
 		main.press(id)
 	var highest := main.pad_note(4)
 	_check(lowest <= 40 and highest >= 86, "the electric reaches from below low E to the top of the neck (%d to %d)" % [lowest, highest])
-	for id: String in ["up", "sharp"]:
+	for id: String in ["up", "sharp", "sharp"]:
 		main.press(id)
 	_check(not main.mods.up and not main.mods.sharp and main.pad_note(0) == 50, "and the keys go off again")
 
@@ -287,6 +322,50 @@ func _run() -> void:
 	main._midi_on(64)
 	main._note_off("m64")
 	_check(looper.track(Kit.PIANO).back().n == 64 and looper.track(Kit.PIANO).back().t == 0.25, "a MIDI key writes in too")
+
+	# Changing a note already written in: dragged along and up, by its end, and erased
+	looper.clear_track(Kit.PIANO)
+	main.cursor = 0.0
+	main.step_len = 0.5
+	main.press("n1")
+	main.release("n1")
+	var note: Dictionary = looper.track(Kit.PIANO)[0]
+	var was_n: int = note.n
+	var hud := main.hud
+	var per := hud._inner().size.x / Looper.BEATS
+	var row := hud._inner().size.y / 5.0
+	var at: Vector2 = hud._note_spot(note)
+	await _finger(at, true)
+	_check(main.picked() and is_same(main.selected, note), "a finger on a note picks it out")
+	await _slide(at + Vector2(per * 0.5, -row))
+	await _slide(at + Vector2(per * 0.5 + 2.0, -row - 2.0))
+	await _finger(at, false)
+	_check(note.t == 0.5 and note.b == 2 and note.n == was_n + 4, "dragged along and up, it moves a sixteenth at a time and goes to the next button (t %.2f, b %d)" % [note.t, note.b])
+	main.press("undo")
+	note = looper.track(Kit.PIANO)[0]
+	_check(note.t == 0.0 and note.b == 1 and note.n == was_n, "and one undo puts it back")
+	at = hud._note_spot(note)
+	var end := at + Vector2(note.d * per, 0)
+	await _finger(end, true)
+	await _slide(end + Vector2(per, 0))
+	await _finger(end, false)
+	_check(note.d == 1.5, "dragged by its end, it is made longer (%.2f)" % note.d)
+	_check(main.picked(), "and stays picked out")
+	main.press("fwd")
+	_check(note.t == 0.5 and main.cursor == 0.5, "with a note picked out, the arrows move it")
+	main.press("len")
+	_check(note.d == 1.0 and main.step_len == 1.0, "and the length key sets its length")
+	await _key(KEY_UP, true)
+	await _key(KEY_UP, false)
+	_check(note.b == 2, "and the up arrow moves it to the next button")
+	main.press("erase")
+	_check(looper.track(Kit.PIANO).is_empty() and not main.picked(), "erase takes it out")
+	await _finger(hud._inner().get_center(), true)
+	await _finger(hud._inner().get_center(), false)
+	_check(not main.picked() and main.cursor == hud._window() + 2.0, "a finger on an empty part of the sheet only moves the cursor")
+	for b: int in [0, 2]:
+		main.press("n%d" % b)
+		main.release("n%d" % b)
 	await _touch("step", true)
 	await _touch("step", false)
 	_check(not main.stepping and not main.hud.buttons.has("rest"), "and the pencil again puts it all away")
@@ -364,6 +443,24 @@ func _touch(id: String, down: bool, finger := 0) -> void:
 	e.index = finger
 	e.pressed = down
 	e.position = root.get_final_transform() * main.hud.on_screen(id)
+	Input.parse_input_event(e)
+	await _frames(2)
+
+
+# A finger at a point of the Hud (in its own measure), going down or coming up
+func _finger(at: Vector2, down: bool) -> void:
+	var e := InputEventScreenTouch.new()
+	e.index = 4
+	e.pressed = down
+	e.position = root.get_final_transform() * (at * main.hud.fit)
+	Input.parse_input_event(e)
+	await _frames(2)
+
+
+func _slide(at: Vector2) -> void:
+	var e := InputEventScreenDrag.new()
+	e.index = 4
+	e.position = root.get_final_transform() * (at * main.hud.fit)
 	Input.parse_input_event(e)
 	await _frames(2)
 

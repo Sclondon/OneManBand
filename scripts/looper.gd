@@ -202,6 +202,11 @@ func place(inst: int, t: float, d: float, b: int, n: int) -> void:
 	changed.emit()
 
 
+# Before a note already in the track is changed by hand, so that undo can put it back
+func before_edit(inst: int) -> void:
+	_snapshot(inst)
+
+
 func end_chord() -> void:
 	_end_take()
 

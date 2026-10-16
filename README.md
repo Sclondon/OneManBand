@@ -10,10 +10,13 @@ thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a pho
   from one to the next. Keys `A S D F G`.
 - **The stick**: up and down bends what is sounding by up to a whole tone, sideways makes it wobble. Arrow keys.
   Under it are four keys that stay on until tapped again: flat and sharp move the five buttons a half step
-  (`C`, `V`), so every note can be had, and two drop or raise an octave (`Q`, `E`); tapped a second time they go
-  two octaves, and a third puts them out.
-- **Instruments**: piccolo, trumpet, viola, accordion, guitar, ukulele, electric guitar, piano, organ, theremin, tuba, bells, drums, hand percussion, the choir (the
-  satyrs and imps line up and sing, and he conducts) and a bassoon. Keys `1` to `0`, `-`, `=`, `[`, `]`, `\` and `'`. The
+  (`C`, `V`), and two drop or raise an octave (`Q`, `E`). Tapped a second time, flat and sharp go a whole step and
+  the octave keys two octaves; a third tap puts them out. The whole steps are what make every note reachable in
+  every tuning (Classic in C is D F A B D: without them there is no G).
+- **Instruments**, on the shelf kind with kind (`Kit.SHELF_GROUPS`, each on a tray of its own): piccolo, bassoon,
+  trumpet, tuba; viola, guitar, ukulele, electric guitar; piano, organ, accordion, theremin; the choir (the satyrs
+  and imps line up and sing, and he conducts); bells, drums, hand percussion. Keys `1` to `0`, `-`, `=`, `[`, `]`,
+  `\` and `'`, in that order. The
   electric holds a note for as long as it is held; the piano dies away by itself and stops when let go. On the drums the five buttons are kick,
   snare, hat, tom and crash; the low octave key changes them to the big drums (boom, rim, open hat, floor tom, ride) and
   the high one to the toys (clap, block, shake, bell, splash). The hand percussion goes the same way: guiro, cuica,
@@ -27,6 +30,9 @@ thing on top. Godot 4.7, GL Compatibility, made to run in a browser and on a pho
   and the cursor moves on by that much; buttons (or MIDI keys) held together go in as one chord, and are taken back
   by one undo. The sheet shows the bar the cursor is in; a tap on it moves the cursor there. Under the loop station
   are back and on (`←` `→`), the length, a rest (`Enter`) and erase (`Backspace`). The loop can play while you write.
+  Notes already there can be changed: drag one along (a sixteenth at a time, within its bar), up or down (to the
+  next button), or by its end (longer or shorter). Tapped, it stays picked out with a red ring, and then the arrows
+  move it (`↑` `↓` too), the length key sets its length, and erase takes it out. Each change is one undo.
 - **More room**: the tab over the instruments (`X`) tucks them away while you play, to see more of him.
 - **Watching**: the eye (`H`) puts the controls away while the loop plays; a tap anywhere, or the loop stopping,
   brings them back. With the loop going the little folk dance it, a new figure every four bars.

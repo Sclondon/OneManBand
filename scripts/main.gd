@@ -43,6 +43,7 @@ var sample := 0           # which sample song the menu loaded last (a first visi
 var mods := {"flat": false, "sharp": false, "down": false, "up": false}
 const OPPOSITE := {"flat": "sharp", "sharp": "flat", "down": "up", "up": "down"}
 var two := false          # the octave key that is on goes two octaves
+var double := false       # flat or sharp, whichever is on, goes a whole step
 var bend := 0.0           # semitones the stick has everything bent by, this instant
 var _arrows := {}
 var held := {}            # button (or "m60" for a MIDI key) -> [voice, recording token]
@@ -60,6 +61,7 @@ var stepping := false
 var cursor := 0.0         # the beat the next note goes on
 var step_len := 0.25
 var _chord := false       # something has been written at the cursor and the buttons are not all up yet
+var selected: Variant = null   # the note picked out to be changed, or null
 var _render: SongRender   # the song being written out as a WAV, a little each frame
 var _tempo_way := 0       # -1 or 1 while a tempo button is held down
 var _tempo_held := 0.0
@@ -187,9 +189,16 @@ func _notification(what: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and not event.echo:
-		# Writing notes in, left and right move the cursor
+		# Writing notes in, left and right move the cursor (or the note picked out), and with a note
+		# picked out, up and down move it from one button to the next
 		if stepping and event.physical_keycode in [KEY_LEFT, KEY_RIGHT]:
 			hud.key("back" if event.physical_keycode == KEY_LEFT else "fwd", event.pressed)
+			get_viewport().set_input_as_handled()
+			return
+		if stepping and picked() and event.physical_keycode in [KEY_UP, KEY_DOWN]:
+			if event.pressed:
+				looper.before_edit(inst)
+				retune(selected, selected.b + (1 if event.physical_keycode == KEY_UP else -1))
 			get_viewport().set_input_as_handled()
 			return
 		# The arrow keys push the stick
@@ -225,16 +234,21 @@ func press(id: String) -> void:
 	elif s >= 0:
 		looper.go_to(s)
 	elif mods.has(id):
-		# These stay on until they are tapped again, and each puts its opposite out. An octave key
-		# tapped again goes a second octave, and only the third tap puts it out (but on the drums,
-		# where it is the kit, there is no second).
-		var octave := id in ["up", "down"] and not Kit.is_drums(inst)
-		if mods[id] and octave and not two:
-			two = true
+		# These stay on until they are tapped again, and each puts its opposite out. Tapped again,
+		# an octave key goes a second octave and flat or sharp a whole step (a double flat or sharp,
+		# without which some tunings leave notes out: Classic in C has no G), and only the third tap
+		# puts it out. (On the drums, where they change the kit and bend the drum, there is no second.)
+		var octave := id in ["up", "down"]
+		var twice := two if octave else double
+		if mods[id] and not twice and not Kit.is_drums(inst):
+			twice = true
 		else:
 			mods[id] = not mods[id]
-			if octave:
-				two = false
+			twice = false
+		if octave:
+			two = twice
+		else:
+			double = twice
 		if mods[id]:
 			mods[OPPOSITE[id]] = false
 	else:
@@ -245,14 +259,30 @@ func press(id: String) -> void:
 				looper.toggle_record()
 			"step":
 				set_stepping(not stepping)
-			"back", "fwd", "rest":
-				if stepping:
+			"back", "fwd":
+				# (with a note picked out, they move it instead of the cursor)
+				if stepping and picked():
+					shift_note(-step_len if id == "back" else step_len)
+				elif stepping:
 					move_cursor(-step_len if id == "back" else step_len)
+			"rest":
+				if stepping:
+					pick(null)
+					move_cursor(step_len)
 			"len":
 				if stepping:
 					step_len = STEP_LENGTHS[(STEP_LENGTHS.find(step_len) + 1) % STEP_LENGTHS.size()]
+					if picked():
+						looper.before_edit(inst)
+						selected.d = step_len
+						looper.changed.emit()
 			"erase":
-				if stepping and not looper.erase(inst, cursor, step_len):
+				if stepping and picked():
+					looper.before_edit(inst)
+					looper.track(inst).erase(selected)
+					pick(null)
+					looper.changed.emit()
+				elif stepping and not looper.erase(inst, cursor, step_len):
 					hud.toast("Nothing of the %s's there to take out" % Kit.INSTRUMENTS[inst].name.to_lower())
 			"play":
 				looper.toggle_play()
@@ -377,9 +407,11 @@ func pad_note(b: int) -> int:
 		return roundi(hud.stick_now.y * 4.0) + (2 if mods.sharp else 0) - (2 if mods.flat else 0) \
 				+ Kit.DRUM_KIT * ((1 if mods.up else 0) - (1 if mods.down else 0))
 	var steps: Array = Kit.TUNINGS[tuning].steps
-	# (flat and sharp move a button a semitone, so between them and the tunings every note can be had)
+	# (flat and sharp move a button a semitone, or tapped twice a whole one, so that in every tuning
+	# every note can be had)
 	var octaves := 24 if two else 12
-	return Kit.INSTRUMENTS[inst].base + key + steps[b] + (1 if mods.sharp else 0) - (1 if mods.flat else 0) \
+	var step := 2 if double else 1
+	return Kit.INSTRUMENTS[inst].base + key + steps[b] + (step if mods.sharp else 0) - (step if mods.flat else 0) \
 			+ (octaves if mods.up else 0) - (octaves if mods.down else 0)
 
 
@@ -401,6 +433,7 @@ func set_stepping(on: bool) -> void:
 			looper.toggle_record()
 		cursor = clampf(snappedf(cursor, 0.25), 0.0, looper.length() - 0.25)
 		hud.toast("Step mode: each note goes in at the cursor, then it moves on")
+	selected = null
 	_end_chord()
 	_fit()
 
@@ -414,6 +447,7 @@ func move_cursor(by: float) -> void:
 # Puts the cursor on beat `beat`, to the nearest sixteenth (a tap on the sheet of music)
 func step_to(beat: float) -> void:
 	_end_chord()
+	selected = null
 	cursor = clampf(floorf(beat / 0.25) * 0.25, 0.0, looper.length() - 0.25)
 
 
@@ -423,8 +457,51 @@ func _end_chord() -> void:
 		looper.end_chord()
 
 
+# --- Changing a note that is already written in (picked out by a tap on the sheet) --------------
+
+# Whether a note is picked out, and is still one of this instrument's (undo can take it away)
+func picked() -> bool:
+	return selected != null and looper.track(inst).any(func(note: Dictionary) -> bool: return is_same(note, selected))
+
+
+func pick(note: Variant) -> void:
+	selected = note
+	if note != null:
+		cursor = note.t
+		sound_note(note)
+
+
+# Moves the note picked out on (or back) so many beats, and the cursor with it
+func shift_note(by: float) -> void:
+	looper.before_edit(inst)
+	selected.t = clampf(snappedf(selected.t + by, 0.25), 0.0, looper.length() - 0.25)
+	cursor = selected.t
+	looper.changed.emit()
+	sound_note(selected)
+
+
+# Moves `note` to button `b`: a note of the tuning that much higher or lower, or another drum
+func retune(note: Dictionary, b: int) -> void:
+	b = clampi(b, 0, 4)
+	if note.b < 0 or b == note.b:
+		return
+	if not Kit.is_drums(inst):
+		var steps: Array = Kit.TUNINGS[tuning].steps
+		note.n += steps[b] - steps[note.b]
+	note.b = b
+	looper.changed.emit()
+	sound_note(note)
+
+
+# Lets a note be heard, short, as it is changed
+func sound_note(note: Dictionary) -> void:
+	var voice := synth.play(inst, note.b, note.n, 0.8)
+	get_tree().create_timer(0.25).timeout.connect(func() -> void: synth.stop(voice))
+
+
 # A note written in at the cursor. The cursor moves on when every button is up again.
 func _write(b: int, n: int) -> void:
+	selected = null
 	cursor = fposmod(cursor, looper.length())
 	looper.place(inst, cursor, step_len, b, n)
 	_chord = true

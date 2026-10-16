@@ -46,8 +46,21 @@ const INSTRUMENTS: Array[Dictionary] = [
 	{"id": "percussion", "name": "Percussion", "base": 0, "bases": [], "held": false, "gm": 0, "db": -4.0, "color": Color("f2a93b")},
 ]
 
-# The order they are laid out in for picking, and that the number keys go in
-const SHELF: Array[int] = [PICCOLO, TRUMPET, VIOLA, ACCORDION, GUITAR, UKULELE, ELECTRIC, PIANO, ORGAN, THEREMIN, TUBA, BELLS, DRUMS, PERCUSSION, CHOIR, BASSOON]
+# How they are laid out for picking, kind with kind: winds and brass, strings, keys (and the
+# theremin), the choir, and what is hit. SHELF is the same in one line, the order the number keys go in.
+const SHELF_GROUPS: Array = [[PICCOLO, BASSOON, TRUMPET, TUBA], [VIOLA, GUITAR, UKULELE, ELECTRIC],
+		[PIANO, ORGAN, ACCORDION, THEREMIN], [CHOIR], [BELLS, DRUMS, PERCUSSION]]
+const SHELF: Array[int] = [PICCOLO, BASSOON, TRUMPET, TUBA, VIOLA, GUITAR, UKULELE, ELECTRIC,
+		PIANO, ORGAN, ACCORDION, THEREMIN, CHOIR, BELLS, DRUMS, PERCUSSION]
+
+
+# Which of SHELF_GROUPS instrument `inst` is in
+static func group_of(inst: int) -> int:
+	for g in SHELF_GROUPS.size():
+		if SHELF_GROUPS[g].has(inst):
+			return g
+	return -1
+
 
 # Three kits of five drums: the trap set, the big low ones (with the low octave key on) and the
 # toys (with the high one). A drum's note says which kit it is from and how far it is bent:

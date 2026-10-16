@@ -137,9 +137,13 @@ func _run() -> void:
 		main.press("len")
 		main.press("n4")
 		main.release("n4")
+		main.pick(main.looper.track(Kit.PIANO)[1])
+		main.press("sharp")
+		main.press("sharp")
 		main.press("play")
 		await _frames(60)
 		await _shot("step")
+		main.press("sharp")
 		main.press("play")
 		main.press("step")
 	if _wanted("help"):

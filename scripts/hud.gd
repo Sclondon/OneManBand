@@ -14,6 +14,7 @@ extends Control
 const RYE: FontFile = preload("res://fonts/Rye-Regular.ttf")
 const FREDOKA: FontFile = preload("res://fonts/Fredoka.ttf")
 const WIDE_MIN := 1080.0
+const GROUP_GAP := 12.0   # between one kind of instrument and the next on the shelf
 const TALL_MIN := 1100.0
 
 const CREAM := Color("f4e8c4")
@@ -92,7 +93,16 @@ var view_rect := Rect2(0, 0, 1280, 720)
 # The shelf of instruments can be tucked away by its tab, to see more of him while playing
 # (the number keys still pick an instrument). `seen` is free_rect, eased, so the camera glides
 var shelf_away := false
+var trays: Array[Rect2] = []   # behind each run of one kind of instrument on the shelf
 var seen := Rect2()
+# A note on the sheet being changed by a finger, writing notes in: "move" (along, up and down) or
+# "length" (by its end), and the note as it was when the finger went down
+var edit_finger := -1
+var edit_mode := ""
+var edit_from := Vector2.ZERO
+var edit_was := {}
+var edit_bar := 0.0
+var edit_moved := false
 var toast_text := ""
 var toast_left := 0.0
 var by_hand: Array = []        # the last notes played, for the staff when nothing is looping: [button, seconds since, name]
@@ -164,18 +174,30 @@ func layout(screen: Vector2) -> void:
 		x0 = m + 4.0 + 206.0 + 14.0
 		x1 = pads_left - 14.0
 		top = s.y - m - 4.0
-	# In one row if they are a fair size that way, or else in two
+	# In one row if they are a fair size that way, or else in two. Kind sits with kind (Kit.SHELF_GROUPS),
+	# each kind on a tray of its own with a gap before the next.
 	var per := count
-	if (x1 - x0 - (count - 1) * 8.0) / count < 58.0:
+	if (x1 - x0 - (count - 1) * 8.0 - (Kit.SHELF_GROUPS.size() - 1) * GROUP_GAP) / count < 58.0:
 		per = ceili(count / 2.0)
-	var side := clampf((x1 - x0 - (per - 1) * 8.0) / per, 40.0, 92.0)
-	var start := (x0 + x1 - per * side - (per - 1) * 8.0) / 2.0
-	var block := ceili(float(count) / per) * (side + 8.0) - 8.0
+	# (the most gaps there are in any one row)
+	var gaps := 0
 	for k in count:
-		buttons["i%d" % Kit.SHELF[k]] = {"rect": Rect2(start + (k % per) * (side + 8.0), top - block + (k / per) * (side + 8.0), side, side)}
+		gaps = maxi(gaps, _gaps_before(k, per))
+	var side := clampf((x1 - x0 - (per - 1) * 8.0 - gaps * GROUP_GAP) / per, 40.0, 92.0)
+	var width := per * side + (per - 1) * 8.0 + gaps * GROUP_GAP
+	var start := (x0 + x1 - width) / 2.0
+	var block := ceili(float(count) / per) * (side + 8.0) - 8.0
+	trays.clear()
+	for k in count:
+		var r := Rect2(start + (k % per) * (side + 8.0) + _gaps_before(k, per) * GROUP_GAP, top - block + (k / per) * (side + 8.0), side, side)
+		buttons["i%d" % Kit.SHELF[k]] = {"rect": r}
+		if k % per == 0 or Kit.group_of(Kit.SHELF[k]) != Kit.group_of(Kit.SHELF[k - 1]):
+			trays.append(r.grow(4.0))
+		else:
+			trays[-1] = trays[-1].merge(r.grow(4.0))
 	# The shelf's tab: over its right-hand end when it is out, down where it was when it is away
 	var room := 0.0 if shelf_away else block + 8.0
-	buttons["shelf"] = {"rect": Rect2(minf(x1, start + per * (side + 8.0) - 8.0) - 84.0, top - room - 48.0, 84.0, 44.0)}
+	buttons["shelf"] = {"rect": Rect2(minf(x1, start + width) - 84.0, top - room - 48.0, 84.0, 44.0)}
 	free_rect = Rect2(x0, free_top, x1 - x0, top - room - 56.0 - free_top) if wide else Rect2(0.0, y, s.x, top - room - 52.0 - y)
 	if seen.size == Vector2.ZERO:
 		seen = free_rect
@@ -189,6 +211,15 @@ func layout(screen: Vector2) -> void:
 		# (the last, on a row by itself, takes the whole of it)
 		var alone := k == MENU.size() - 1 and k % 2 == 0
 		buttons["menu:" + MENU[k]] = {"rect": Rect2(at, Vector2(cell.x * 2.0 + 12.0, cell.y) if alone else cell)}
+
+
+# How many kinds of instrument begin before the `k`th on the shelf, in its row of `per`
+func _gaps_before(k: int, per: int) -> int:
+	var gaps := 0
+	for j in range(k - k % per + 1, k + 1):
+		if Kit.group_of(Kit.SHELF[j]) != Kit.group_of(Kit.SHELF[j - 1]):
+			gaps += 1
+	return gaps
 
 
 # Lays `ids` out in a row `width` wide, centred, and returns where the next row would start
@@ -258,6 +289,9 @@ func _input(event: InputEvent) -> void:
 			stick_finger = -1
 			stick = Vector2.ZERO
 			return
+		if event.index == edit_finger and not event.pressed:
+			edit_finger = -1
+			return
 		if event.pressed:
 			if put_away:
 				put_away = false
@@ -266,10 +300,21 @@ func _input(event: InputEvent) -> void:
 				help_open = false
 				book_open = false
 				return
-			# Writing notes in, a tap on the sheet of music puts the cursor there
+			# Writing notes in, a finger on a note on the sheet picks it out, to be slid along, up or
+			# down, or (by its end) made longer or shorter; anywhere else on the sheet puts the cursor there
 			if band.stepping and not menu_open and staff.has_point(at):
-				var inner := _inner()
-				band.step_to(_window() + clampf((at.x - inner.position.x) / inner.size.x, 0.0, 0.999) * Looper.BEATS)
+				var hit := _note_at(at)
+				if hit.is_empty():
+					var inner := _inner()
+					band.step_to(_window() + clampf((at.x - inner.position.x) / inner.size.x, 0.0, 0.999) * Looper.BEATS)
+				else:
+					band.pick(hit[0])
+					edit_finger = event.index
+					edit_mode = hit[1]
+					edit_from = at
+					edit_was = hit[0].duplicate()
+					edit_bar = _window()
+					edit_moved = false
 				return
 			if not menu_open and at.distance_to(stick_at) <= stick_reach * 1.2:
 				stick_finger = event.index
@@ -285,6 +330,8 @@ func _input(event: InputEvent) -> void:
 		elif fingers.has(event.index):
 			_up(fingers[event.index])
 			fingers.erase(event.index)
+	elif event is InputEventScreenDrag and event.index == edit_finger:
+		_drag_note(event.position / fit)
 	elif event is InputEventScreenDrag and event.index == stick_finger:
 		_stick_to(event.position / fit)
 	elif event is InputEventScreenDrag and fingers.has(event.index):
@@ -401,6 +448,9 @@ func _draw() -> void:
 	_arrow(tab_face.get_center() + Vector2(-18.0 if shelf_away else 0.0, 0), Vector2.UP if shelf_away else Vector2.DOWN, 10.0, INK if shelf_away else CREAM)
 	if shelf_away:
 		_draw_instrument(band.inst, tab_face.get_center() + Vector2(15, 0), 0.5, Kit.INSTRUMENTS[band.inst].color)
+	if not shelf_away:
+		for tray in trays:
+			_box(tray, Color(WOOD_D, 0.6), 18.0, Color(BRASS, 0.35), 1.5)
 	for i in Kit.INSTRUMENTS.size():
 		if shelf_away:
 			break
@@ -423,9 +473,15 @@ func _draw() -> void:
 		var on: bool = band.mods[id]
 		var face := _plate(buttons[id].rect, BRASS if on else CREAM, 20.0, on)
 		var c := face.get_center()
-		if id in ["flat", "sharp"]:
-			draw_set_transform(c * fit * 0.3, 0.0, Vector2(fit, fit) * 0.7)
-		_draw_bender(id, c, INK)
+		if id in ["flat", "sharp"] and on and band.double and not Kit.is_drums(band.inst):
+			# Tapped twice, a whole step: the sign twice over
+			for side: float in [-13.0, 13.0]:
+				draw_set_transform(c * fit * 0.45 + Vector2(side, 0) * fit, 0.0, Vector2(fit, fit) * 0.55)
+				_draw_bender(id, c, INK)
+		else:
+			if id in ["flat", "sharp"]:
+				draw_set_transform(c * fit * 0.3, 0.0, Vector2(fit, fit) * 0.7)
+			_draw_bender(id, c, INK)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(fit, fit))
 	_draw_stick()
 	for b in 5:
@@ -555,12 +611,84 @@ func _draw_step_sheet(inner: Rect2, row: float) -> void:
 			continue
 		var b: int = note.b if note.b >= 0 else 2
 		var p := Vector2(inner.position.x + (note.t - from) * per, inner.end.y - (b + 0.5) * row)
+		var mine := is_same(note, band.selected)
+		var w := minf(note.d * per, inner.end.x - p.x)
 		if kit.held:
-			draw_rect(Rect2(p.x, p.y - 4.0, minf(note.d * per, inner.end.x - p.x), 8.0), Color(PAD_COLORS[b].darkened(0.15), 0.75))
+			draw_rect(Rect2(p.x, p.y - 4.0, w, 8.0), Color(PAD_COLORS[b].darkened(0.15), 0.75))
+		if mine:
+			# Picked out: a ring round it, and on a held note a grip at its end to stretch it by
+			draw_circle(p, 15.0, Color(RED, 0.85))
+			if kit.held and note.d * per <= inner.end.x - p.x:
+				_box(Rect2(p.x + w - 4.0, p.y - 9.0, 8.0, 18.0), RED, 3.0, INK, 1.5)
 		_dot(p, 10.0, note.b, 1.0, _label(band.inst, note.b, note.n))
 	if looper.playing and looper.pos >= from and looper.pos < from + Looper.BEATS:
 		var at := inner.position.x + (looper.pos - from) * per
 		draw_line(Vector2(at, inner.position.y - 5.0), Vector2(at, inner.end.y + 5.0), RED, 3.0)
+
+
+# Where note `note` is drawn on the sheet, writing notes in
+func _note_spot(note: Dictionary) -> Vector2:
+	var inner := _inner()
+	var b: int = note.b if note.b >= 0 else 2
+	return Vector2(inner.position.x + (note.t - _window()) * inner.size.x / Looper.BEATS, inner.end.y - (b + 0.5) * inner.size.y / 5.0)
+
+
+# The note of this instrument a finger at `at` is on, and whether on its end (to make it longer or
+# shorter) or anywhere else on it: [note, "length" or "move"], or nothing
+func _note_at(at: Vector2) -> Array:
+	var per := _inner().size.x / Looper.BEATS
+	var from := _window()
+	var best: Array = []
+	var near := 16.0
+	for note: Dictionary in band.looper.track(band.inst):
+		if note.t < from - 0.001 or note.t >= from + Looper.BEATS - 0.001:
+			continue
+		var p := _note_spot(note)
+		var end: float = p.x + note.d * per
+		if Kit.INSTRUMENTS[band.inst].held and note.d * per > 22.0 and absf(at.y - p.y) < 10.0 and absf(at.x - end) < 10.0:
+			return [note, "length"]
+		if at.distance_to(p) < near:
+			near = at.distance_to(p)
+			best = [note, "move"]
+	return best
+
+
+# A finger on a note has moved: the note goes with it, a sixteenth and a button at a time (within
+# its bar: the arrows take it into the next)
+func _drag_note(at: Vector2) -> void:
+	if not band.picked():
+		edit_finger = -1
+		return
+	var note: Dictionary = band.selected
+	var inner := _inner()
+	var per := inner.size.x / Looper.BEATS
+	var looper := band.looper
+	if edit_mode == "length":
+		var d := maxf(0.25, snappedf(edit_was.d + (at.x - edit_from.x) / per, 0.25))
+		if d != note.d:
+			_edited()
+			note.d = d
+			looper.changed.emit()
+		return
+	var t := clampf(edit_was.t + snappedf((at.x - edit_from.x) / per, 0.25), edit_bar, edit_bar + Looper.BEATS - 0.25)
+	t = minf(t, looper.length() - 0.25)
+	if t != note.t:
+		_edited()
+		note.t = t
+		band.cursor = t
+		looper.changed.emit()
+		band.sound_note(note)
+	var b := clampi(edit_was.b + roundi(-(at.y - edit_from.y) / (inner.size.y / 5.0)), 0, 4)
+	if note.b >= 0 and b != note.b:
+		_edited()
+		band.retune(note, b)
+
+
+# (the first change a finger makes to a note can be taken back)
+func _edited() -> void:
+	if not edit_moved:
+		edit_moved = true
+		band.looper.before_edit(band.inst)
 
 
 # The keys for writing notes in: back, on, how long a note is, a rest, and taking out what is there
@@ -1036,12 +1164,12 @@ func _draw_menu() -> void:
 func _draw_help() -> void:
 	var w := minf(size_now.x - 40.0, 660.0)
 	var lines := [
-		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. Hold one for as long as you want the note. The stick bends what is sounding: up and down for pitch, sideways for a wobble. Under it are four keys that stay on until you tap them again: flat and sharp move the buttons a half step (so every note can be had), and the two octave keys drop or raise them an octave.",
-		"Along the bottom is everything he carries. Tap one and he plays that. The little tab over them tucks them away, to see more of him. The last is the choir: the little folk line up and sing, and he conducts. On the drums the two octave keys change the kit, to the big low drums or the toys.",
+		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. Hold one for as long as you want the note. The stick bends what is sounding: up and down for pitch, sideways for a wobble. Under it are four keys that stay on until you tap them again: flat and sharp move the buttons a half step, or tapped twice a whole step (so every note can be had), and the two octave keys drop or raise them an octave, or two.",
+		"Along the bottom is everything he carries. Tap one and he plays that. The little tab over them tucks them away, to see more of him. They are kind with kind: winds and brass, strings, keys, the choir (the little folk line up and sing, and he conducts), and things to hit. On the drums and the percussion the two octave keys change the kit.",
 		"Press the red lamp, wait for four ticks, and play. It comes round again, and again. Change instrument and play over it. The eye puts the controls away while it plays, so you can watch him: tap anywhere to have them back. The arrow takes back the last thing you added, the dustbin empties this instrument's track, and A B C D are four loops to move between.",
-		"The pencil writes notes in one at a time instead: each goes in at the gold cursor, as long as the length key says, and the cursor moves on. Hold buttons together for a chord. Tap the sheet to move the cursor; Rest leaves a gap and Erase takes out what is there. A MIDI keyboard writes in too. The menu saves the song as MIDI or as sound.",
+		"The pencil writes notes in one at a time instead: each goes in at the gold cursor, as long as the length key says, and the cursor moves on. Hold buttons together for a chord. Tap the sheet to move the cursor; Rest leaves a gap and Erase takes out what is there. Drag a note on the sheet to move it, up or down to change it, or by the end of it to make it longer; tapped, the arrows and the length key work on it. A MIDI keyboard writes in too. The menu saves the song as MIDI or as sound.",
 		"Some tunes do things. They are in the song book, in the menu.",
-		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves (twice for two), 1 to 0, - = [ ] \\ and ' for instruments, Space to play, H to hide the controls, X to tuck the instruments away, comma and full stop for the tempo, R to record, Z to take back, P for the pencil (then left and right for the cursor, Enter for a rest, Backspace to erase, L for the length).",
+		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp (twice for a whole step), Q and E for octaves (twice for two), 1 to 0, - = [ ] \\ and ' for instruments, Space to play, H to hide the controls, X to tuck the instruments away, comma and full stop for the tempo, R to record, Z to take back, P for the pencil (then left and right for the cursor, Enter for a rest, Backspace to erase, L for the length).",
 	]
 	# (in smaller print until it fits on the screen)
 	var px := 18
