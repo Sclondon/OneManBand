@@ -22,28 +22,36 @@ func _initialize() -> void:
 	#   breath   air, bow or reed noise under it
 	#   voices   [times the pitch, waves more or fewer in the loop (a slow beat), loudness]
 	for m: int in [72, 84, 96]:
-		_held("piccolo_%d" % m, m, _piccolo, {"attack": 0.025, "vib": 0.004, "rate": 6, "breath": 0.07})
+		_held("piccolo_%d" % m, m, _piccolo, {"attack": 0.03, "scoop": 0.4, "vib": 0.006, "rate": 7, "breath": 0.11})
 	for m: int in [48, 60, 72]:
-		_held("trumpet_%d" % m, m, _trumpet, {"attack": 0.05, "scoop": -0.7, "bright": _trumpet_blare, "vib": 0.002, "rate": 5, "breath": 0.004})
+		_held("trumpet_%d" % m, m, _trumpet, {"attack": 0.06, "scoop": -1.2, "bright": _trumpet_blare, "vib": 0.003, "rate": 5, "breath": 0.004})
 	for m: int in [48, 60, 72, 84]:
-		_held("accordion_%d" % m, m, _reed, {"attack": 0.07, "breath": 0.004, "voices": [[1, 0, 1.0], [1, 6, 0.85], [2, -3, 0.35]]})
+		_held("accordion_%d" % m, m, _reed, {"attack": 0.07, "breath": 0.004, "voices": [[1, 0, 1.0], [1, 8, 0.85], [1, -7, 0.7], [2, -3, 0.3]]})
 	for m: int in [36, 48, 60]:
 		_held("tuba_%d" % m, m, _tuba, {"attack": 0.1, "scoop": -0.5, "vib": 0.001, "rate": 4, "breath": 0.012})
 	for m: int in [48, 60, 72]:
-		_held("organ_%d" % m, m, _organ, {"attack": 0.035, "bright": _organ_chiff, "vib": 0.0025, "rate": 6, "breath": 0.02, "voices": [[1, 0, 1.0], [1, 2, 0.5], [2, -1, 0.25]]})
+		_held("organ_%d" % m, m, _organ, {"attack": 0.035, "bright": _organ_chiff, "breath": 0.02, "voices": [[1, 0, 1.0], [1, 2, 0.5], [2, -1, 0.25]]})
 	for m: int in [60, 72, 84]:
-		_held("theremin_%d" % m, m, _theremin, {"attack": 0.16, "scoop": -2.5, "vib": 0.013, "rate": 6})
+		_held("theremin_%d" % m, m, _theremin, {"attack": 0.2, "scoop": -3.5, "vib": 0.018, "rate": 5})
 	for m: int in [48, 60, 72]:
-		_held("viola_%d" % m, m, _viola, {"attack": 0.11, "vib": 0.005, "rate": 5, "breath": 0.025})
+		_held("viola_%d" % m, m, _viola, {"attack": 0.15, "scoop": -0.2, "vib": 0.006, "rate": 6, "breath": 0.045})
 	for m: int in range(48, 85, 4):
 		_sung("choir_%d" % m, m)
 	for m: int in [36, 48, 60]:
 		_held("bassoon_%d" % m, m, _bassoon, {"attack": 0.05, "scoop": -0.3, "vib": 0.003, "rate": 5, "breath": 0.012})
 	for m: int in [48, 60, 72]:
-		_plucked("guitar_%d" % m, m)
+		_plucked("guitar_%d" % m, m, 2.4, 0.12, 1.4)
 	for m: int in [72, 84, 96]:
 		_struck("bells_%d" % m, m)
 	_drums()
+	# (after the drums, so that theirs is the same noise as it always was)
+	for m: int in [48, 60, 72, 84]:
+		_plucked("ukulele_%d" % m, m, 1.2, 0.3, 0.45)
+	for m: int in [28, 40, 52, 64, 76, 88]:
+		_held("electric_%d" % m, m, _overdrive, {"attack": 0.03, "bright": _pick, "vib": 0.003, "rate": 6, "breath": 0.006,
+				"voices": [[1, 0, 1.0], [1, 3, 0.6], [2, -2, 0.25]]})
+	for m: int in [24, 36, 48, 60, 72, 84, 96]:
+		_hammered("piano_%d" % m, m)
 	print("sounds rendered")
 	quit()
 
@@ -160,6 +168,19 @@ func _viola(h: int, hz: float) -> float:
 	return (1.0 / h) * body / (1.0 + pow(at / 4500.0, 3.0))
 
 
+# An electric guitar through an amplifier turned up too far: every harmonic, falling away slowly,
+# a honk in the middle, and the top cut off where the speaker gives out
+func _overdrive(h: int, hz: float) -> float:
+	var at := h * hz
+	return pow(h, -0.55) * (1.0 + 1.2 * exp(-pow((at - 850.0) / 450.0, 2.0))) / (1.0 + pow(at / 3600.0, 4.0))
+
+
+# (and the pick's scrape as it starts)
+func _pick(h: int, hz: float) -> float:
+	var at := h * hz
+	return pow(h, -0.3) * (1.0 + 1.5 * exp(-pow((at - 2600.0) / 900.0, 2.0))) / (1.0 + pow(at / 6000.0, 4.0))
+
+
 func _pitch(midi: int) -> float:
 	return 440.0 * pow(2.0, (midi - 69) / 12.0)
 
@@ -227,16 +248,17 @@ func _held(file: String, midi: int, amp: Callable, how: Dictionary) -> void:
 	_save(file, out, 0.7, pre)
 
 
-# A string: every harmonic rings, the high ones dying first
-func _plucked(file: String, midi: int) -> void:
+# A string: every harmonic rings, the high ones dying first. `where` is how far along the string
+# it is plucked (nearer the middle is rounder), `ring` how long it rings for.
+func _plucked(file: String, midi: int, seconds := 1.9, where := 0.18, ring := 1.0) -> void:
 	var hz := _pitch(midi)
-	var n := int(1.9 * RATE)
+	var n := int(seconds * RATE)
 	var out := PackedFloat32Array()
 	out.resize(n)
 	for h in range(1, mini(24, int(13000.0 / hz)) + 1):
-		var a := sin(PI * h * 0.18) / h
+		var a := sin(PI * h * where) / h
 		var tone := hz * h * sqrt(1.0 + 0.00012 * h * h)
-		var keep := exp(-1.0 / (RATE * 1.0 / (1.0 + 0.3 * h) * pow(220.0 / hz, 0.3)))
+		var keep := exp(-1.0 / (RATE * ring / (1.0 + 0.3 * h) * pow(220.0 / hz, 0.3)))
 		var env := a
 		var step := TAU * tone / RATE
 		for i in n:
@@ -245,6 +267,44 @@ func _plucked(file: String, midi: int) -> void:
 	for i in int(0.004 * RATE):
 		out[i] += noise.randf_range(-0.3, 0.3) * (1.0 - i / (0.004 * RATE))
 	_fade(out, 0.002, 0.08)
+	_save(file, out, 0.75)
+
+
+# A piano note: a felt hammer on three strings not quite in tune with each other (so the note
+# swims a little as it dies), struck an eighth of the way along; it dies fast at first and then
+# slowly, the high harmonics first, and the low notes ring the longest. The game damps it when
+# the key comes up.
+func _hammered(file: String, midi: int) -> void:
+	var hz := _pitch(midi)
+	var seconds := clampf(5.0 - (midi - 36) * 0.05, 2.0, 5.5)
+	var n := int(seconds * RATE)
+	var out := PackedFloat32Array()
+	out.resize(n)
+	# (the low strings are stiffer for their length: their harmonics run sharper)
+	var stiff := 0.0004 * pow(2.0, (midi - 60) / 24.0)
+	var hard := clampf((midi - 30) / 60.0, 0.0, 1.0)
+	for h in range(1, mini(30, int(12000.0 / hz)) + 1):
+		var a := absf(sin(PI * h / 8.0)) / pow(h, 1.1 - 0.3 * hard)
+		var tone := hz * h * sqrt(1.0 + stiff * h * h)
+		var ring := 3.2 * pow(130.0 / hz, 0.45) / (1.0 + 0.12 * h * h * hz / 500.0)
+		var quick := exp(-1.0 / (RATE * ring * 0.18))
+		var slow := exp(-1.0 / (RATE * ring))
+		# (only the low harmonics are worth three strings: the swimming is not heard in the rest)
+		var strings := 3 if h <= 6 else 1
+		for s in strings:
+			var step: float = TAU * tone * (1.0 + [0.0, 0.0011, -0.0008][s]) / RATE
+			var fast := a * 0.6 / strings
+			var long := a * 0.4 / strings
+			var turn := s * 1.7 + h
+			for i in n:
+				out[i] += (fast + long) * sin(step * i + turn)
+				fast *= quick
+				long *= slow
+	# The thump of the hammer, and its felt on the string
+	for i in int(0.03 * RATE):
+		var t := float(i) / RATE
+		out[i] += (noise.randf_range(-1.0, 1.0) * 0.25 * exp(-t / 0.004) + sin(TAU * 70.0 * t) * 0.2 * exp(-t / 0.02)) * 0.5
+	_fade(out, 0.001, 0.3)
 	_save(file, out, 0.75)
 
 

@@ -122,6 +122,26 @@ func _run() -> void:
 		await _frames(60)
 		await _shot("shelf_away")
 		main.press("shelf")
+	if _wanted("step"):
+		# Writing notes in on the piano: a run, a chord, an eighth, with the loop going
+		main.press("i%d" % Kit.PIANO)
+		main.press("step")
+		main.cursor = 4.0
+		for b: int in [0, 1, 2]:
+			main.press("n%d" % b)
+			main.release("n%d" % b)
+		main.press("n0")
+		main.press("n2")
+		main.release("n0")
+		main.release("n2")
+		main.press("len")
+		main.press("n4")
+		main.release("n4")
+		main.press("play")
+		await _frames(60)
+		await _shot("step")
+		main.press("play")
+		main.press("step")
 	if _wanted("help"):
 		main.hud.help_open = true
 		await _frames(3)

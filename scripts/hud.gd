@@ -26,8 +26,11 @@ const RED := Color("dd3f2e")
 const GOLD := Color("f8ca22")
 # The five note buttons, lowest to highest
 const PAD_COLORS: Array[Color] = [Color("4fb0ff"), Color("58d68d"), Color("f8ca22"), Color("ff9a3d"), Color("ff6b7c")]
-const TRANSPORT := ["rec", "play", "undo", "clear", "mute", "metro", "bpm-", "bpm", "bpm+", "bars", "s0", "s1", "s2", "s3", "hide", "menu"]
-const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "radio", "export", "midi", "sound", "songbook", "help", "close"]
+const TRANSPORT := ["rec", "step", "play", "undo", "clear", "mute", "metro", "bpm-", "bpm", "bpm+", "bars", "s0", "s1", "s2", "s3", "hide", "menu"]
+const MENU := ["tuning", "key", "snap", "chain", "demo", "new", "radio", "midi", "export", "wav", "sound", "songbook", "help", "close"]
+# The row of keys for writing notes in at the cursor, under the loop station while it is out
+const STEPPER := ["back", "fwd", "len", "rest", "erase"]
+const LENGTH_NAMES := {0.25: "1/16", 0.5: "1/8", 1.0: "1/4", 2.0: "1/2", 4.0: "1 bar"}
 const BENDERS := ["flat", "sharp", "down", "up"]
 # In a browser the stick also listens to the page's own touches (see _ready): on some phones
 # a finger's sliding never arrives as a drag here, though its going down and coming up do
@@ -127,8 +130,13 @@ func layout(screen: Vector2) -> void:
 	if wide:
 		y = _row(TRANSPORT, y, 56.0, minf(s.x - 2.0 * m, 980.0))
 	else:
-		y = _row(TRANSPORT.slice(0, 6) + ["hide", "menu"], y, 58.0, s.x - 2.0 * m)
-		y = _row(TRANSPORT.slice(6, 14), y, 58.0, s.x - 2.0 * m)
+		y = _row(TRANSPORT.slice(0, 7) + ["hide", "menu"], y, 58.0, s.x - 2.0 * m)
+		y = _row(TRANSPORT.slice(7, 15), y, 58.0, s.x - 2.0 * m)
+	# Writing notes in at the cursor: a row of keys for it under the loop station
+	var free_top := staff.end.y + 4.0
+	if band != null and band.stepping:
+		y = _row(STEPPER, y, 50.0, minf(s.x - 2.0 * m, 600.0))
+		free_top = y
 
 	# The notes, rising from left to right like a little keyboard: three below, two between them above
 	var rad := 54.0
@@ -168,7 +176,7 @@ func layout(screen: Vector2) -> void:
 	# The shelf's tab: over its right-hand end when it is out, down where it was when it is away
 	var room := 0.0 if shelf_away else block + 8.0
 	buttons["shelf"] = {"rect": Rect2(minf(x1, start + per * (side + 8.0) - 8.0) - 84.0, top - room - 48.0, 84.0, 44.0)}
-	free_rect = Rect2(x0, staff.end.y + 4.0, x1 - x0, top - room - 56.0 - staff.end.y) if wide else Rect2(0.0, y, s.x, top - room - 52.0 - y)
+	free_rect = Rect2(x0, free_top, x1 - x0, top - room - 56.0 - free_top) if wide else Rect2(0.0, y, s.x, top - room - 52.0 - y)
 	if seen.size == Vector2.ZERO:
 		seen = free_rect
 
@@ -185,7 +193,7 @@ func layout(screen: Vector2) -> void:
 
 # Lays `ids` out in a row `width` wide, centred, and returns where the next row would start
 func _row(ids: Array, y: float, h: float, width: float) -> float:
-	var weights := {"bpm": 1.25, "bars": 1.25}
+	var weights := {"bpm": 1.25, "bars": 1.25, "len": 1.4}
 	var total := 0.0
 	for id: String in ids:
 		total += weights.get(id, 1.0)
@@ -257,6 +265,11 @@ func _input(event: InputEvent) -> void:
 			if help_open or book_open:
 				help_open = false
 				book_open = false
+				return
+			# Writing notes in, a tap on the sheet of music puts the cursor there
+			if band.stepping and not menu_open and staff.has_point(at):
+				var inner := _inner()
+				band.step_to(_window() + clampf((at.x - inner.position.x) / inner.size.x, 0.0, 0.999) * Looper.BEATS)
 				return
 			if not menu_open and at.distance_to(stick_at) <= stick_reach * 1.2:
 				stick_finger = event.index
@@ -379,6 +392,9 @@ func _draw() -> void:
 	_box(well.grow(2.0), Color(WOOD_D, 0.82), 16.0, Color(BRASS, 0.5), 1.5)
 	for id: String in TRANSPORT:
 		_draw_transport(id)
+	if band.stepping:
+		for id: String in STEPPER:
+			_draw_step_key(id)
 	# The shelf's tab: an arrow for which way the shelf will go, and what he is playing when it is away
 	var tab: Rect2 = buttons["shelf"].rect
 	var tab_face := _plate(tab, BRASS if shelf_away else WOOD, 12.0, _held("shelf"))
@@ -452,11 +468,16 @@ func _draw_staff() -> void:
 	_text_left(staff.position + Vector2(20.0, 19.0), kit.name, 19, kit.color.darkened(0.55), title_font)
 	var tune: String = Kit.note_name(band.key) + " " + Kit.TUNINGS[band.tuning].name
 	var about := "Part %s  ·  %d bar%s  ·  %d bpm  ·  %s" % ["ABCD"[looper.section], looper.bars, "" if looper.bars == 1 else "s", int(looper.bpm), tune]
+	if band.stepping:
+		about = "Part %s  ·  bar %d of %d  ·  %s notes  ·  %s" % ["ABCD"[looper.section], int(_window() / Looper.BEATS) + 1, looper.bars,
+				LENGTH_NAMES.get(band.step_len, ""), tune]
 	_text_right(Vector2(staff.end.x - 20.0, staff.position.y + 19.0), about, 15, Color(INK, 0.7))
 
 	var notes := looper.track(band.inst)
 	var span := looper.length()
-	if notes.is_empty() and not looper.playing and not looper.counting:
+	if band.stepping:
+		_draw_step_sheet(inner, row)
+	elif notes.is_empty() and not looper.playing and not looper.counting:
 		# Nothing looping: the last few notes played, in a row
 		for k in by_hand.size():
 			var b: int = by_hand[k][0]
@@ -488,6 +509,10 @@ func _draw_staff() -> void:
 	# Under the staff, a thin lane for each instrument's track
 	var lanes := Rect2(inner.position.x, inner.end.y + 8.0, inner.size.x, 26.0)
 	_box(lanes.grow_individual(10.0, 2.0, 10.0, 2.0), Color(WOOD_D, 0.88), 6.0)
+	if band.stepping:
+		# (the bar the sheet above is showing)
+		var from := lanes.position.x + lanes.size.x * _window() / span
+		draw_rect(Rect2(from, lanes.position.y - 3.0, lanes.size.x * Looper.BEATS / span, lanes.size.y + 6.0), Color(GOLD, 0.8), false, 2.0)
 	var lane := lanes.size.y / Kit.INSTRUMENTS.size()
 	for i in Kit.INSTRUMENTS.size():
 		var c: Color = Kit.INSTRUMENTS[i].color
@@ -499,6 +524,67 @@ func _draw_staff() -> void:
 			if note.t < span:
 				draw_rect(Rect2(lanes.position.x + lanes.size.x * note.t / span, y + 0.5,
 						maxf(3.0, lanes.size.x * minf(note.d, 0.5) / span * 0.6), lane - 1.0), Color(c, a))
+
+
+# Where the notes go on the sheet of music
+func _inner() -> Rect2:
+	return Rect2(staff.position + Vector2(70.0, 34.0), staff.size - Vector2(92.0, 74.0))
+
+
+# Writing notes in, the sheet shows only the bar the cursor is in: the first beat of it
+func _window() -> float:
+	return floorf(fposmod(band.cursor, band.looper.length()) / Looper.BEATS) * Looper.BEATS
+
+
+# The bar the cursor is in, a line for every sixteenth, and the cursor itself: a gold band where the
+# next note will go, as long as it will be
+func _draw_step_sheet(inner: Rect2, row: float) -> void:
+	var looper := band.looper
+	var kit := Kit.INSTRUMENTS[band.inst]
+	var from := _window()
+	var per := inner.size.x / Looper.BEATS
+	var x := inner.position.x + (fposmod(band.cursor, looper.length()) - from) * per
+	draw_rect(Rect2(x, inner.position.y - 4.0, minf(band.step_len * per, inner.end.x - x), inner.size.y + 8.0), Color(GOLD, 0.4))
+	draw_line(Vector2(x, inner.position.y - 6.0), Vector2(x, inner.end.y + 6.0), BRASS.darkened(0.3), 3.0)
+	for k in Looper.BEATS * 4 + 1:
+		var at := inner.position.x + k * per / 4.0
+		var beat := k % 4 == 0
+		draw_line(Vector2(at, inner.position.y + row * 0.5), Vector2(at, inner.end.y - row * 0.5), Color(INK, 0.55 if beat else 0.15), 2.0 if beat else 1.0)
+	for note: Dictionary in looper.track(band.inst):
+		if note.t < from - 0.001 or note.t >= from + Looper.BEATS - 0.001:
+			continue
+		var b: int = note.b if note.b >= 0 else 2
+		var p := Vector2(inner.position.x + (note.t - from) * per, inner.end.y - (b + 0.5) * row)
+		if kit.held:
+			draw_rect(Rect2(p.x, p.y - 4.0, minf(note.d * per, inner.end.x - p.x), 8.0), Color(PAD_COLORS[b].darkened(0.15), 0.75))
+		_dot(p, 10.0, note.b, 1.0, _label(band.inst, note.b, note.n))
+	if looper.playing and looper.pos >= from and looper.pos < from + Looper.BEATS:
+		var at := inner.position.x + (looper.pos - from) * per
+		draw_line(Vector2(at, inner.position.y - 5.0), Vector2(at, inner.end.y + 5.0), RED, 3.0)
+
+
+# The keys for writing notes in: back, on, how long a note is, a rest, and taking out what is there
+func _draw_step_key(id: String) -> void:
+	var r: Rect2 = buttons[id].rect
+	var face := _plate(r, BRASS if id == "len" else WOOD, 13.0, _held(id))
+	var c := face.get_center()
+	match id:
+		"back", "fwd":
+			var way := -1.0 if id == "back" else 1.0
+			_arrow(c + Vector2(-3.0 * way, 0), Vector2(way, 0), 11.0, CREAM)
+			draw_line(c + Vector2(10.0 * way, -11), c + Vector2(10.0 * way, 11), CREAM, 3.5, true)
+		"len":
+			_text(c + Vector2(0, -6), LENGTH_NAMES.get(band.step_len, ""), 22, INK, title_font)
+			_text(c + Vector2(0, 15), "NOTE", 11, Color(INK, 0.7))
+		"rest":
+			# A crotchet rest
+			draw_polyline([c + Vector2(-3, -17), c + Vector2(4, -9), c + Vector2(-2, -3), c + Vector2(4, 4),
+					c + Vector2(-3, 3), c + Vector2(1, 10)], CREAM, 3.5, true)
+			_text(c + Vector2(0, 17), "REST", 10, Color(CREAM, 0.75))
+		"erase":
+			draw_line(c + Vector2(-8, -14), c + Vector2(8, 2), RED.lightened(0.3), 4.0, true)
+			draw_line(c + Vector2(8, -14), c + Vector2(-8, 2), RED.lightened(0.3), 4.0, true)
+			_text(c + Vector2(0, 15), "ERASE", 10, Color(CREAM, 0.75))
 
 
 # A note on the staff: a small copy of the button that played it, with the note's name
@@ -532,6 +618,8 @@ func _draw_transport(id: String) -> void:
 			on = looper.muted[band.inst]
 		"metro":
 			on = looper.metronome
+		"step":
+			on = band.stepping
 	var s := Band._numbered(id, "s")
 	if s >= 0:
 		on = s == looper.section
@@ -562,6 +650,11 @@ func _draw_transport(id: String) -> void:
 				_box(Rect2(c - Vector2(11, 11), Vector2(22, 22)), ink, 4.0)
 			else:
 				draw_colored_polygon([c + Vector2(-9, -13), c + Vector2(14, 0), c + Vector2(-9, 13)], ink)
+		"step":
+			# A pencil, for writing the notes in one at a time
+			draw_line(c + Vector2(-6, 6), c + Vector2(11, -11), ink, 7.0, true)
+			draw_line(c + Vector2(8, -8), c + Vector2(11, -11), RED if not on else RED.darkened(0.3), 7.0, true)
+			draw_colored_polygon([c + Vector2(-11.7, 11.7), c + Vector2(-3.5, 8.5), c + Vector2(-8.5, 3.5)], ink)
 		"hide":
 			# An eye
 			var lids := PackedVector2Array()
@@ -682,10 +775,15 @@ func _draw_bender(id: String, c: Vector2, ink: Color) -> void:
 					c + Vector2(4, 11), c + Vector2(-9, 18)], ink, 4.0, true)
 		"up":
 			_arrow(c + Vector2(-27, -2), Vector2.UP, 11.0, ink)
-			_text(c + Vector2(13, 0), "toys" if Kit.is_drums(band.inst) else "octave", 15, Color(ink, 0.85))
+			_text(c + Vector2(13, 0), "toys" if Kit.is_drums(band.inst) else _octaves(id), 15, Color(ink, 0.85))
 		"down":
 			_arrow(c + Vector2(-27, 1), Vector2.DOWN, 11.0, ink)
-			_text(c + Vector2(13, 0), "big" if Kit.is_drums(band.inst) else "octave", 15, Color(ink, 0.85))
+			_text(c + Vector2(13, 0), "big" if Kit.is_drums(band.inst) else _octaves(id), 15, Color(ink, 0.85))
+
+
+# What an octave key says on it: two octaves once it has been tapped twice
+func _octaves(id: String) -> String:
+	return "2 octaves" if band.mods[id] and band.two else "octave"
 
 
 # A little picture of instrument `i`, about 54 across at scale 1, in `col` with its own shade and shine
@@ -744,6 +842,54 @@ func _draw_instrument(i: int, c: Vector2, k: float, col: Color) -> void:
 			draw_line(o + (along * -13.0 - across * 5.0) * k, o + (along * -13.0 + across * 5.0) * k, hole, 2.6 * k)
 			for off: float in [-1.6, 1.6]:
 				draw_line(o + (along * -13.0 + across * off) * k, o + (along * 38.0 + across * off) * k, Color(pale, 0.9), 1.0 * k, true)
+		Kit.UKULELE:
+			# The guitar's shape again, small, upright and pale, with four pegs
+			var o := c + Vector2(-2, 8) * k
+			draw_line(o + Vector2(0, -8) * k, o + Vector2(0, -30) * k, dark, 5.0 * k, true)
+			_box(Rect2(o + Vector2(-4.5, -36) * k, Vector2(9, 9) * k), dark, 2.0 * k)
+			for y: float in [-33.5, -29.5]:
+				for x: float in [-6.5, 6.5]:
+					draw_circle(o + Vector2(x, y) * k, 1.8 * k, CREAM)
+			draw_circle(o + Vector2(0, 7) * k, 12.0 * k, dark)
+			draw_circle(o + Vector2(0, -6) * k, 9.0 * k, dark)
+			draw_circle(o + Vector2(0, 7) * k, 10.0 * k, col)
+			draw_circle(o + Vector2(0, -6) * k, 7.2 * k, col)
+			draw_circle(o + Vector2(0, -1) * k, 3.6 * k, hole)
+			draw_line(o + Vector2(-4.5, 12) * k, o + Vector2(4.5, 12) * k, dark, 2.4 * k)
+			for x: float in [-1.2, 1.2]:
+				draw_line(o + Vector2(x, 12) * k, o + Vector2(x, -28) * k, Color(pale, 0.9), 1.0 * k, true)
+		Kit.ELECTRIC:
+			# A solid red body with two horns, a white scratchplate, and a long neck off to the top right
+			var along := Vector2(0.72, -0.69)
+			var o := c + Vector2(-9, 9) * k
+			draw_line(o + along * 8.0 * k, o + along * 36.0 * k, dark, 4.6 * k, true)
+			draw_colored_polygon([o + (along * 34.0 + Vector2(-2, -4)) * k, o + (along * 43.0 + Vector2(-1, -6)) * k,
+					o + (along * 43.0 + Vector2(5, 2)) * k, o + (along * 34.0 + Vector2(3, 3)) * k], col)
+			var horns := PackedVector2Array([Vector2(-14, 2), Vector2(-12, -9), Vector2(-5, -12), Vector2(-2, -20), Vector2(4, -10),
+					Vector2(12, -15), Vector2(10, -3), Vector2(14, 6), Vector2(6, 14), Vector2(-8, 13)])
+			var outline := PackedVector2Array()
+			var body := PackedVector2Array()
+			for v in horns:
+				outline.append(o + v * 1.12 * k)
+				body.append(o + v * k)
+			draw_colored_polygon(outline, dark)
+			draw_colored_polygon(body, col)
+			draw_colored_polygon([o + Vector2(-9, 1) * k, o + Vector2(-4, -7) * k, o + Vector2(3, -2) * k, o + Vector2(-2, 8) * k], CREAM)
+			for t: float in [-4.0, 3.0]:
+				draw_line(o + (along * t + Vector2(-3.5, -3.5)) * k, o + (along * t + Vector2(3.5, 3.5)) * k, hole, 3.2 * k)
+			draw_circle(o + Vector2(7, 7) * k, 2.2 * k, BRASS)
+			draw_line(o - along * 7.0 * k, o + along * 40.0 * k, Color(pale, 0.9), 1.0 * k, true)
+		Kit.PIANO:
+			# A run of keys, white and black, in a black case with its lid propped up behind them
+			draw_colored_polygon([c + Vector2(-22, -6) * k, c + Vector2(-16, -22) * k, c + Vector2(22, -22) * k, c + Vector2(22, -6) * k], hole)
+			_box(Rect2(c + Vector2(-27, -6) * k, Vector2(54, 24) * k), hole, 3.0 * k)
+			draw_rect(Rect2(c + Vector2(-24, -2) * k, Vector2(48, 17) * k), col)
+			for j in 7:
+				draw_line(c + Vector2(-24.0 + (j + 1) * 6.86, -2) * k, c + Vector2(-24.0 + (j + 1) * 6.86, 15) * k, Color(hole, 0.6), 1.2 * k)
+			for j in 6:
+				if j == 2:
+					continue
+				draw_rect(Rect2(c + Vector2(-24.0 + (j + 1) * 6.86 - 2.2, -2) * k, Vector2(4.4, 10) * k), hole)
 		Kit.TUBA:
 			draw_arc(c + Vector2(-3, 9) * k, 12.0 * k, 0.0, TAU, 22, dark, 8.5 * k, true)
 			draw_arc(c + Vector2(-3, 9) * k, 12.0 * k, 0.0, TAU, 22, col, 5.5 * k, true)
@@ -855,6 +1001,7 @@ func _draw_menu() -> void:
 		"new": "New song",
 		"radio": "Send to the station radio",
 		"export": "Save as MIDI file",
+		"wav": "Save as sound (WAV)" if band._render == null else "Writing it down...",
 		"midi": "MIDI keyboard: " + ("on" if band.midi_open else "off"),
 		"sound": "Sound: " + ("on" if band.synth.sound else "off"),
 		"songbook": "Song book",
@@ -873,18 +1020,26 @@ func _draw_help() -> void:
 		"The five round buttons are five notes, lowest on the left and highest on the right, each with its name on it. Hold one for as long as you want the note. The stick bends what is sounding: up and down for pitch, sideways for a wobble. Under it are four keys that stay on until you tap them again: flat and sharp move the buttons a half step (so every note can be had), and the two octave keys drop or raise them an octave.",
 		"Along the bottom is everything he carries. Tap one and he plays that. The little tab over them tucks them away, to see more of him. The last is the choir: the little folk line up and sing, and he conducts. On the drums the two octave keys change the kit, to the big low drums or the toys.",
 		"Press the red lamp, wait for four ticks, and play. It comes round again, and again. Change instrument and play over it. The eye puts the controls away while it plays, so you can watch him: tap anywhere to have them back. The arrow takes back the last thing you added, the dustbin empties this instrument's track, and A B C D are four loops to move between.",
+		"The pencil writes notes in one at a time instead: each goes in at the gold cursor, as long as the length key says, and the cursor moves on. Hold buttons together for a chord. Tap the sheet to move the cursor; Rest leaves a gap and Erase takes out what is there. A MIDI keyboard writes in too. The menu saves the song as MIDI or as sound.",
 		"Some tunes do things. They are in the song book, in the menu.",
-		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves, 1 to 0, - and = for instruments, Space to play, H to hide the controls, X to tuck the instruments away, comma and full stop for the tempo, R to record, Z to take back.",
+		"Keys: A S D F G for notes, arrows for the stick, C and V for flat and sharp, Q and E for octaves (twice for two), 1 to 0, - = [ ] and \\ for instruments, Space to play, H to hide the controls, X to tuck the instruments away, comma and full stop for the tempo, R to record, Z to take back, P for the pencil (then left and right for the cursor, Enter for a rest, Backspace to erase, L for the length).",
 	]
-	var h := 84.0 + 50.0
-	for line: String in lines:
-		h += font.get_multiline_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, w - 56.0, 18).y + 12.0
+	# (in smaller print until it fits on the screen)
+	var px := 18
+	var h := 0.0
+	while true:
+		h = 84.0 + 50.0
+		for line: String in lines:
+			h += font.get_multiline_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, w - 56.0, px).y + 12.0
+		if h <= size_now.y - 20.0 or px <= 11:
+			break
+		px -= 1
 	var r := Rect2((size_now.x - w) / 2.0, maxf(10.0, (size_now.y - h) / 2.0), w, h)
 	_sheet(r, "One Man Band")
 	var y := r.position.y + 88.0
 	for line: String in lines:
-		draw_multiline_string(font, Vector2(r.position.x + 28.0, y), line, HORIZONTAL_ALIGNMENT_LEFT, w - 56.0, 18, -1, INK)
-		y += font.get_multiline_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, w - 56.0, 18).y + 12.0
+		draw_multiline_string(font, Vector2(r.position.x + 28.0, y), line, HORIZONTAL_ALIGNMENT_LEFT, w - 56.0, px, -1, INK)
+		y += font.get_multiline_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, w - 56.0, px).y + 12.0
 	_text(Vector2(size_now.x / 2.0, r.end.y - 22.0), "Tap anywhere", 16, Color(INK, 0.55))
 
 

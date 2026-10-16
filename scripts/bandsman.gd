@@ -26,6 +26,9 @@ const REACH := [
 	[Vector3(0.37, 0.5, 0.4), Vector3(-0.12, 0.5, 0.3)],
 	[Vector3(0.36, 0.4, 0.32), Vector3(-0.37, 0.43, 0.37)],
 	[Vector3(0.33, 0.34, 0.26), Vector3(0.125, 0.0, 0.26)],
+	[Vector3(0.32, 0.43, 0.3), Vector3(-0.04, 0.27, 0.33)],
+	[Vector3(0.42, 0.29, 0.3), Vector3(-0.12, 0.09, 0.34)],
+	[Vector3(0.16, 0.075, 0.32), Vector3(-0.08, 0.075, 0.32)],
 ]
 
 var stage: Stage
@@ -92,6 +95,15 @@ func _ready() -> void:
 	# (held high on his chest, so that the strumming arm comes over the top of it and not through it)
 	_carry(Kit.GUITAR, p.guitar, Transform3D(Basis(Vector3.BACK, 0.38), Vector3(-0.16, 0.12, 0.26)),
 			Transform3D(Basis(Vector3.BACK, -1.15) * Basis(Vector3.UP, PI), Vector3(0.05, 0.3, -0.7)))
+	# (the ukulele high up under his chin; put away, it hangs neck down at his right hip)
+	_carry(Kit.UKULELE, p.ukulele, Transform3D(Basis(Vector3.BACK, 0.45), Vector3(-0.06, 0.25, 0.27)),
+			Transform3D(Basis(Vector3.BACK, -PI / 2.0 - 0.2) * Basis(Vector3.UP, PI / 2.0), Vector3(-0.42, -0.12, 0.02)))
+	# (the electric slung like the guitar; put away, it crosses the guitar on his back)
+	_carry(Kit.ELECTRIC, p.electric, Transform3D(Basis(Vector3.BACK, 0.35), Vector3(-0.14, 0.08, 0.27)),
+			Transform3D(Basis(Vector3.BACK, 1.15) * Basis(Vector3.UP, PI), Vector3(0.0, 0.3, -0.8)))
+	# (the piano hangs low in front of him, keys to his side; put away, it stands on end at his right hip)
+	_carry(Kit.PIANO, p.piano, Transform3D(Basis(), Vector3(0.0, -0.02, 0.36)),
+			Transform3D(Basis(Vector3.BACK, PI / 2.0), Vector3(-0.62, -0.05, -0.4)))
 	_carry(Kit.TUBA, p.tuba_pipe, p.tuba_pipe.transform, null)
 	# (the snare is slung on the front of his right thigh)
 	_carry(Kit.DRUMS, p.snare, Transform3D(Basis(Vector3.RIGHT, 0.3), Vector3(0.0, -0.02, 0.39)),
@@ -172,11 +184,11 @@ func on_note(which: int, b: int, live: bool) -> void:
 		return
 	last_pad = b
 	match which:
-		Kit.ORGAN:
+		Kit.ORGAN, Kit.PIANO:
 			strike[1] = 1.0
 		Kit.ACCORDION:
 			half_to = 0.2 if half_to < 0.14 else 0.08
-		Kit.GUITAR:
+		Kit.GUITAR, Kit.UKULELE, Kit.ELECTRIC:
 			strike[1] = 1.0
 		Kit.BELLS:
 			strike[turn] = 1.0
@@ -270,7 +282,7 @@ func _process(delta: float) -> void:
 		# (the elbow hangs out and back, but for the arm that strums the guitar: that one is up and
 		# forward, over the top of its body)
 		var pole := Vector3(mirror, -0.9, -0.35)
-		if inst == Kit.GUITAR and h == 1:
+		if _strummed() and h == 1:
 			pole = Vector3(-1.0, 0.25, 0.6)
 		_reach(p["upper_" + side], p["fore_" + side], SHOULDER * Vector3(mirror, 1, 1), hand_at[h], pole)
 
@@ -301,10 +313,22 @@ func _hand_goal(h: int) -> Vector3:
 		Kit.GUITAR:
 			if h == 1:
 				at.y += 0.09 * sin(strike[1] * PI) - 0.02
+		Kit.UKULELE, Kit.ELECTRIC:
+			# The strumming hand as on the guitar; the other slides down the neck for a higher note
+			if h == 1:
+				at.y += 0.07 * sin(strike[1] * PI) - 0.02
+			else:
+				var neck: Node3D = p.ukulele if inst == Kit.UKULELE else p.electric
+				var top := 0.48 if inst == Kit.UKULELE else 0.62
+				at = neck.transform * Vector3(top - 0.045 * last_pad, -0.02, 0.06)
 		Kit.BELLS:
 			at += Vector3(0.0, -0.12, 0.05) * strike[h] + Vector3(0.0, 0.02 * sin(time * 2.0 + h), 0.0)
 		Kit.DRUMS:
 			at += Vector3(0.0, 0.07 - 0.1 * strike[h], 0.0)
+		Kit.PIANO:
+			# Both hands walk the keys: the left for the low buttons, the right for the high ones
+			if h == (0 if last_pad <= 1 else 1):
+				at += Vector3(0.06 - 0.03 * last_pad, -0.03 * strike[1], 0.0)
 		Kit.ORGAN:
 			# The right hand walks along the keys to the one it is playing; the left holds a chord
 			if h == 1:
@@ -335,6 +359,10 @@ func _hand_goal(h: int) -> Vector3:
 	return at
 
 
+func _strummed() -> bool:
+	return inst == Kit.GUITAR or inst == Kit.UKULELE or inst == Kit.ELECTRIC
+
+
 func _blown() -> bool:
 	return inst == Kit.PICCOLO or inst == Kit.TRUMPET or inst == Kit.TUBA or inst == Kit.BASSOON
 
@@ -350,12 +378,18 @@ func _piece(which: int, b: int) -> Node3D:
 			return acc if inst == which else p.torso
 		Kit.GUITAR:
 			return p.guitar
+		Kit.UKULELE:
+			return p.ukulele
+		Kit.ELECTRIC:
+			return p.electric
 		Kit.TUBA:
 			return p.tuba
 		Kit.BELLS:
 			return p.pack_bells
 		Kit.ORGAN:
 			return p.organ
+		Kit.PIANO:
+			return p.piano
 		Kit.THEREMIN:
 			return p.theremin
 		Kit.VIOLA:

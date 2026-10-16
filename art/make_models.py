@@ -436,6 +436,45 @@ def build_bandsman():
 
     gt.resize(0.8)
 
+    # A ukulele: the guitar again, small and pale, with four pegs
+    uk = Part("ukulele")
+    uk.cyl((0, -0.04, 0), (0, 0.04, 0), 0.15, 0.15, WOOD_L, WOOD, seg=10)
+    uk.cyl((0.17, -0.04, 0), (0.17, 0.04, 0), 0.115, 0.115, WOOD_L, WOOD, seg=10)
+    uk.cyl((0, -0.046, 0), (0, -0.04, 0), 0.138, 0.138, "#f2d29a", seg=10)
+    uk.cyl((0.17, -0.046, 0), (0.17, -0.04, 0), 0.104, 0.104, "#f2d29a", seg=10)
+    uk.cyl((0.09, -0.052, 0), (0.09, -0.045, 0), 0.045, 0.045, DARK, seg=8)
+    uk.box((0.4, -0.03, 0), (0.3, 0.03, 0.045), BROWN)
+    uk.box((0.6, -0.03, 0), (0.1, 0.03, 0.075), BROWN_D)
+    for i in range(4):
+        uk.ball((0.575 + (i % 2) * 0.05, -0.03, 0.048 if i < 2 else -0.048), 0.016, CREAM, seg=4, rings=3)
+    uk.box((-0.075, -0.052, 0), (0.024, 0.012, 0.09), BROWN_D)
+    uk.box((0.27, -0.054, 0), (0.7, 0.004, 0.03), WHITE)
+
+    # An electric guitar, solid and red: a body with two horns, a white scratchplate, two
+    # pickups, knobs, and a long neck with all six pegs up one side of its head
+    el = Part("electric")
+    el.cyl((0, -0.035, 0), (0, 0.035, 0), 0.21, 0.21, RED, RED_D, seg=10)
+    el.cyl((0.2, -0.035, 0), (0.2, 0.035, 0), 0.15, 0.15, RED, RED_D, seg=10)
+    for z, l in ((0.12, 0.2), (-0.11, 0.13)):
+        el.box((0.32, 0, z), (l, 0.07, 0.07), RED, RED_D, rot=(0, -0.5 if z > 0 else 0.4, 0))
+    el.cyl((0.03, -0.041, 0.04), (0.03, -0.035, 0.04), 0.14, 0.14, WHITE, seg=8)
+    for x in (0.02, 0.15):
+        el.box((x, -0.046, 0), (0.035, 0.01, 0.09), DARK)
+        for z in (-0.03, 0.0, 0.03):
+            el.ball((x, -0.051, z), 0.006, "#c9ccd4", seg=4, rings=2)
+    el.box((-0.1, -0.044, 0), (0.03, 0.012, 0.11), "#c9ccd4")
+    for x, z in ((-0.08, -0.13), (-0.02, -0.15), (0.04, -0.15)):
+        el.cyl((x, -0.035, z), (x, -0.06, z), 0.018, 0.016, GOLD, GOLD_D, seg=6)
+    el.box((0.62, -0.03, 0), (0.62, 0.035, 0.05), BROWN)
+    for i in range(6):
+        el.box((0.38 + i * 0.09, -0.049, 0), (0.004, 0.004, 0.05), "#c9ccd4")
+    el.box((1.0, -0.03, 0.02), (0.18, 0.025, 0.09), RED, RED_D)
+    for i in range(6):
+        el.ball((0.93 + i * 0.03, -0.03, 0.075), 0.012, "#c9ccd4", seg=4, rings=3)
+    el.box((0.42, -0.053, 0), (1.15, 0.003, 0.032), WHITE)
+
+    el.resize(0.85)
+
     # A little pipe organ, hung in front of him: a wine-red case with the keys along his side of
     # its top, and beyond them a rank of open brass pipes, tall at the ends and short in the
     # middle so that his face shows over them. (his side is +y, up is +z)
@@ -457,6 +496,22 @@ def build_bandsman():
         og.horn((x, -0.055, 0.06), (x, -0.055, 0.06 + tall), wide, wide, BRASS, BRASS_D, seg=7)
         og.cyl((x, -0.055, 0.04), (x, -0.055, 0.075), wide * 0.6, wide, BRASS_D, seg=6)
         og.box((x, -0.055 - wide, 0.115), (wide * 1.2, 0.012, 0.022), DARK)
+
+    # A piano to carry: a long black case with a full run of white and black keys along his side
+    # of its top and a gold name strip. (his side is +y, up is +z)
+    pn = Part("piano")
+    pn.box((0, 0, 0), (0.86, 0.24, 0.09), "#2a2230", DARK)
+    pn.box((0, 0.045, 0.047), (0.8, 0.13, 0.008), WHITE)
+    for i in range(22):
+        pn.box((-0.39 + i * 0.0364 + 0.018, 0.045, 0.052), (0.003, 0.13, 0.004), "#b9b2a0")
+    for i in range(21):
+        if i % 7 in (2, 6):
+            continue
+        pn.box((-0.39 + (i + 1) * 0.0364, 0.025, 0.06), (0.02, 0.08, 0.014), DARK)
+    pn.box((0, -0.085, 0.05), (0.84, 0.06, 0.02), "#2a2230")
+    pn.box((0, -0.06, 0.062), (0.3, 0.008, 0.014), GOLD, GOLD_D)
+    for x in (-0.38, 0.38):
+        pn.box((x, 0, 0), (0.04, 0.25, 0.1), "#3b3044", DARK)
 
     # A theremin: a box of valves on a tray, a rod to play the note on and a loop for how loud
     th = Part("theremin")

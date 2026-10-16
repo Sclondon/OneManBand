@@ -13,6 +13,9 @@ const CHOIR := 10
 const BASSOON := 11
 const THEREMIN := 8
 const VIOLA := 9
+const UKULELE := 12
+const ELECTRIC := 13
+const PIANO := 14
 
 # `base` is the note the buttons count up from in the key of C, `bases` the notes there are
 # samples of, `held` whether a note lasts as long as the button (and `release` how long it takes
@@ -32,10 +35,16 @@ const INSTRUMENTS: Array[Dictionary] = [
 	# (the little folk on the green, singing: he conducts)
 	{"id": "choir", "name": "Choir", "base": 60, "bases": [48, 52, 56, 60, 64, 68, 72, 76, 80, 84], "held": true, "release": 0.35, "gm": 52, "db": -6.0, "color": Color("a8e6c9")},
 	{"id": "bassoon", "name": "Bassoon", "base": 48, "bases": [36, 48, 60], "held": true, "release": 0.09, "gm": 70, "db": -5.0, "color": Color("c9643e")},
+	{"id": "ukulele", "name": "Ukulele", "base": 60, "bases": [48, 60, 72, 84], "held": false, "gm": 24, "db": -5.0, "color": Color("ffd98a")},
+	# (turned up too loud, so that a note sings on for as long as it is held; samples from low E
+	# to the top of the neck and past, because between them the keys reach all of it)
+	{"id": "electric", "name": "Electric", "base": 48, "bases": [28, 40, 52, 64, 76, 88], "held": true, "release": 0.12, "gm": 29, "db": -9.0, "color": Color("e8364f")},
+	# (struck, so a note dies away by itself, but is stopped short when the key is let go)
+	{"id": "piano", "name": "Piano", "base": 60, "bases": [24, 36, 48, 60, 72, 84, 96], "held": true, "release": 0.15, "gm": 0, "db": -6.0, "color": Color("f2efe6")},
 ]
 
 # The order they are laid out in for picking, and that the number keys go in
-const SHELF: Array[int] = [PICCOLO, TRUMPET, VIOLA, ACCORDION, GUITAR, ORGAN, THEREMIN, TUBA, BELLS, DRUMS, CHOIR, BASSOON]
+const SHELF: Array[int] = [PICCOLO, TRUMPET, VIOLA, ACCORDION, GUITAR, UKULELE, ELECTRIC, PIANO, ORGAN, THEREMIN, TUBA, BELLS, DRUMS, CHOIR, BASSOON]
 
 # Three kits of five drums: the trap set, the big low ones (with the low octave key on) and the
 # toys (with the high one). A drum's note says which kit it is from and how far it is bent:

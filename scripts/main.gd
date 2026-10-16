@@ -12,8 +12,11 @@ const KEYS := {
 	KEY_Q: "down", KEY_E: "up", KEY_C: "flat", KEY_V: "sharp",
 	KEY_SPACE: "play", KEY_R: "rec", KEY_Z: "undo", KEY_M: "metro", KEY_H: "hide", KEY_X: "shelf", KEY_ESCAPE: "close",
 	KEY_COMMA: "bpm-", KEY_PERIOD: "bpm+",
+	KEY_P: "step", KEY_ENTER: "rest", KEY_BACKSPACE: "erase", KEY_DELETE: "erase", KEY_L: "len",
 }
-const NUMBER_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUAL]
+# Step entry: how long a note written in is (and how far the cursor goes on after it), in beats
+const STEP_LENGTHS := [0.25, 0.5, 1.0, 2.0, 4.0]
+const NUMBER_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0, KEY_MINUS, KEY_EQUAL, KEY_BRACKETLEFT, KEY_BRACKETRIGHT, KEY_BACKSLASH]
 const FOV := 38.0
 # What the camera has to keep in the picture: the middle of him, and how tall and wide he is
 const SUBJECT := Vector3(0.0, 1.55, 0.0)
@@ -39,6 +42,7 @@ var tuning := 0
 var sample := 0           # which sample song the menu loaded last (a first visit has the first)
 var mods := {"flat": false, "sharp": false, "down": false, "up": false}
 const OPPOSITE := {"flat": "sharp", "sharp": "flat", "down": "up", "up": "down"}
+var two := false          # the octave key that is on goes two octaves
 var bend := 0.0           # semitones the stick has everything bent by, this instant
 var _arrows := {}
 var held := {}            # button (or "m60" for a MIDI key) -> [voice, recording token]
@@ -49,6 +53,14 @@ var _radio_wait := 0.0
 var time := 0.0
 var _dirty := false
 var _since_save := 0.0
+# Step entry: instead of being recorded as they are played, notes are written in one at a time at
+# a cursor, which then moves on by the length of a note, like step input on a sequencer. Buttons
+# (or MIDI keys) held down together are written in together, as a chord.
+var stepping := false
+var cursor := 0.0         # the beat the next note goes on
+var step_len := 0.25
+var _chord := false       # something has been written at the cursor and the buttons are not all up yet
+var _render: SongRender   # the song being written out as a WAV, a little each frame
 var _tempo_way := 0       # -1 or 1 while a tempo button is held down
 var _tempo_held := 0.0
 var _tempo_next := 0.0
@@ -157,6 +169,7 @@ func _process(delta: float) -> void:
 		crowd.sing(0.3)
 	_aim()
 	_run_tempo(delta)
+	_run_render()
 	if _radio_wait > 0.0:
 		_radio_wait -= delta
 		if _radio_wait <= 0.0:
@@ -174,6 +187,11 @@ func _notification(what: int) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and not event.echo:
+		# Writing notes in, left and right move the cursor
+		if stepping and event.physical_keycode in [KEY_LEFT, KEY_RIGHT]:
+			hud.key("back" if event.physical_keycode == KEY_LEFT else "fwd", event.pressed)
+			get_viewport().set_input_as_handled()
+			return
 		# The arrow keys push the stick
 		if event.physical_keycode in [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN]:
 			_arrows[event.physical_keycode] = event.pressed
@@ -207,14 +225,35 @@ func press(id: String) -> void:
 	elif s >= 0:
 		looper.go_to(s)
 	elif mods.has(id):
-		# These stay on until they are tapped again, and each puts its opposite out
-		mods[id] = not mods[id]
+		# These stay on until they are tapped again, and each puts its opposite out. An octave key
+		# tapped again goes a second octave, and only the third tap puts it out (but on the drums,
+		# where it is the kit, there is no second).
+		var octave := id in ["up", "down"] and not Kit.is_drums(inst)
+		if mods[id] and octave and not two:
+			two = true
+		else:
+			mods[id] = not mods[id]
+			if octave:
+				two = false
 		if mods[id]:
 			mods[OPPOSITE[id]] = false
 	else:
 		match id:
 			"rec":
+				if stepping:
+					set_stepping(false)
 				looper.toggle_record()
+			"step":
+				set_stepping(not stepping)
+			"back", "fwd", "rest":
+				if stepping:
+					move_cursor(-step_len if id == "back" else step_len)
+			"len":
+				if stepping:
+					step_len = STEP_LENGTHS[(STEP_LENGTHS.find(step_len) + 1) % STEP_LENGTHS.size()]
+			"erase":
+				if stepping and not looper.erase(inst, cursor, step_len):
+					hud.toast("Nothing of the %s's there to take out" % Kit.INSTRUMENTS[inst].name.to_lower())
 			"play":
 				looper.toggle_play()
 			"undo":
@@ -272,6 +311,9 @@ func press(id: String) -> void:
 				hud.toast("A clean sheet")
 			"export":
 				export_midi()
+				hud.menu_open = false
+			"wav":
+				export_wav()
 				hud.menu_open = false
 			"radio":
 				send_to_radio()
@@ -336,8 +378,9 @@ func pad_note(b: int) -> int:
 				+ Kit.DRUM_KIT * ((1 if mods.up else 0) - (1 if mods.down else 0))
 	var steps: Array = Kit.TUNINGS[tuning].steps
 	# (flat and sharp move a button a semitone, so between them and the tunings every note can be had)
+	var octaves := 24 if two else 12
 	return Kit.INSTRUMENTS[inst].base + key + steps[b] + (1 if mods.sharp else 0) - (1 if mods.flat else 0) \
-			+ (12 if mods.up else 0) - (12 if mods.down else 0)
+			+ (octaves if mods.up else 0) - (octaves if mods.down else 0)
 
 
 # The button that would give note `n` on instrument `i` with nothing held, or -1
@@ -349,6 +392,44 @@ func pad_of(i: int, n: int) -> int:
 	return -1
 
 
+func set_stepping(on: bool) -> void:
+	if on == stepping:
+		return
+	stepping = on
+	if on:
+		if looper.recording:
+			looper.toggle_record()
+		cursor = clampf(snappedf(cursor, 0.25), 0.0, looper.length() - 0.25)
+		hud.toast("Step mode: each note goes in at the cursor, then it moves on")
+	_end_chord()
+	_fit()
+
+
+# Moves the cursor on (or back) so many beats, round the loop
+func move_cursor(by: float) -> void:
+	_end_chord()
+	cursor = fposmod(snappedf(cursor + by, 0.25), looper.length())
+
+
+# Puts the cursor on beat `beat`, to the nearest sixteenth (a tap on the sheet of music)
+func step_to(beat: float) -> void:
+	_end_chord()
+	cursor = clampf(floorf(beat / 0.25) * 0.25, 0.0, looper.length() - 0.25)
+
+
+func _end_chord() -> void:
+	if _chord:
+		_chord = false
+		looper.end_chord()
+
+
+# A note written in at the cursor. The cursor moves on when every button is up again.
+func _write(b: int, n: int) -> void:
+	cursor = fposmod(cursor, looper.length())
+	looper.place(inst, cursor, step_len, b, n)
+	_chord = true
+
+
 func _pad_on(b: int) -> void:
 	if held.has(b):
 		return
@@ -356,7 +437,10 @@ func _pad_on(b: int) -> void:
 	var n := pad_note(b)
 	var voice := synth.play(inst, b, n)
 	synth.bend(voice, bend)
-	held[b] = [voice, looper.record_on(inst, b, n if Kit.is_drums(inst) else n + roundi(hud.stick_now.y * 2.0))]
+	var kept := n if Kit.is_drums(inst) else n + roundi(hud.stick_now.y * 2.0)
+	if stepping:
+		_write(b, kept)
+	held[b] = [voice, 0 if stepping else looper.record_on(inst, b, kept)]
 	man.on_note(inst, b, true)
 	hud.played_by_hand(b)
 	if not Kit.is_drums(inst):
@@ -369,7 +453,9 @@ func _midi_on(pitch: int) -> void:
 		return
 	var b := pitch % 5 if Kit.is_drums(inst) else pad_of(inst, pitch)
 	var n := 0 if Kit.is_drums(inst) else pitch
-	held[id] = [synth.play(inst, b, n), looper.record_on(inst, b, n)]
+	if stepping:
+		_write(b, n)
+	held[id] = [synth.play(inst, b, n), 0 if stepping else looper.record_on(inst, b, n)]
 	man.on_note(inst, maxi(b, 0), true)
 	hud.played_by_hand(b)
 
@@ -380,6 +466,8 @@ func _note_off(id: Variant) -> void:
 	synth.stop(held[id][0])
 	looper.record_off(held[id][1])
 	held.erase(id)
+	if stepping and _chord and held.is_empty():
+		move_cursor(step_len)
 
 
 func _loop_note(i: int, b: int, _n: int) -> void:
@@ -432,6 +520,7 @@ func _tune(tune: Dictionary) -> void:
 func new_song() -> void:
 	looper.stop()
 	looper.wipe()
+	cursor = 0.0
 	looper.bpm = 110.0
 	looper.bars = 2
 	looper.chain = false
@@ -443,6 +532,7 @@ func load_demo(which := 0) -> void:
 	key = 0
 	tuning = 0
 	looper.from_dict([_demo(), _march(), _hymn()][which])
+	cursor = 0.0
 
 
 # A couple of bars for the house band: drums, tuba, accordion, guitar and bells, with the piccolo
@@ -493,6 +583,47 @@ func export_midi() -> void:
 		hud.toast("Saved one-man-band.mid")
 	else:
 		var path := "user://one-man-band.mid"
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_buffer(bytes)
+		f.close()
+		hud.toast("Saved to " + ProjectSettings.globalize_path(path))
+
+
+# Writes the song out as sound, to keep or send to anyone: as the MIDI file has it, the loop that
+# is up, or with song mode on every part with anything in it in turn. It is played into the file a
+# little each frame (see _process), so the band keeps going meanwhile.
+func export_wav() -> void:
+	if _render != null:
+		return
+	if looper.song_empty() or (not looper.chain and looper.section_empty(looper.section)):
+		hud.toast("Nothing to save yet. Record something first")
+		return
+	var song := looper.to_dict()
+	var parts: Array = []
+	if looper.chain:
+		for s in Looper.SECTIONS:
+			if not looper.section_empty(s):
+				parts.append(song.sections[s])
+	if parts.is_empty():
+		parts.append(song.sections[looper.section])
+	song.sections = parts
+	_render = SongRender.new(song)
+	hud.toast("Writing the song down...")
+
+
+func _run_render() -> void:
+	if _render == null:
+		return
+	if not _render.work(8):
+		hud.toast("Writing the song down... %d%%" % roundi(_render.progress * 100.0))
+		return
+	var bytes := _render.bytes
+	_render = null
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(bytes, "one-man-band.wav", "audio/wav")
+		hud.toast("Saved one-man-band.wav")
+	else:
+		var path := "user://one-man-band.wav"
 		var f := FileAccess.open(path, FileAccess.WRITE)
 		f.store_buffer(bytes)
 		f.close()

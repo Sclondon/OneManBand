@@ -186,6 +186,38 @@ func clear_track(inst: int) -> void:
 	changed.emit()
 
 
+# --- Step entry: notes written in at a cursor, as a sequencer takes them from a keyboard --------
+
+# A note written in on beat `t`, `d` beats long, in place of the same note if it is there already.
+# Everything written in until end_chord is taken back by one undo.
+func place(inst: int, t: float, d: float, b: int, n: int) -> void:
+	if not _snapped.has(inst):
+		_snapshot(inst)
+		_snapped[inst] = true
+	var notes := track(inst)
+	for note: Dictionary in notes.duplicate():
+		if note.b == b and note.n == n and absf(note.t - t) < 0.01:
+			notes.erase(note)
+	notes.append({"t": t, "d": d, "b": b, "n": n})
+	changed.emit()
+
+
+func end_chord() -> void:
+	_end_take()
+
+
+# Takes out what of `inst` starts in the `d` beats from beat `t`; says whether there was any
+func erase(inst: int, t: float, d: float) -> bool:
+	var gone := track(inst).filter(func(note: Dictionary) -> bool: return note.t > t - 0.01 and note.t < t + d - 0.01)
+	if gone.is_empty():
+		return false
+	_snapshot(inst)
+	for note: Dictionary in gone:
+		track(inst).erase(note)
+	changed.emit()
+	return true
+
+
 func undo() -> bool:
 	if _undo.is_empty():
 		return false
